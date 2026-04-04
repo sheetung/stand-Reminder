@@ -5,7 +5,12 @@ on:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -18,7 +23,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
+          go-version: '1.22'
 
       - name: Download dependencies
         run: go mod tidy
@@ -26,11 +31,44 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Set build metadata
+        id: meta
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $version = '${{ github.ref_name }}'
+          } else {
+            $version = 'dev'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "exe_name=stand-reminder-$version.exe" >> $env:GITHUB_OUTPUT
+          "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
+
       - name: Build executable
-        run: go build -ldflags="-H windowsgui" -o stand-reminder.exe .
+        run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
+
+      - name: Prepare release bundle
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path "${{ steps.meta.outputs.exe_name }}", "config.json", "README.md" -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stand-reminder-windows
-          path: stand-reminder.exe
+          name: stand-reminder-${{ steps.meta.outputs.version }}-windows
+          path: |
+            ${{ steps.meta.outputs.exe_name }}
+            ${{ steps.meta.outputs.zip_name }}
+          if-no-files-found: ignore
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Stand Reminder ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            ${{ steps.meta.outputs.exe_name }}
+            ${{ steps.meta.outputs.zip_name }}
