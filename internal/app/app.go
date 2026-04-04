@@ -11,6 +11,12 @@ import (
 	"stand-reminder/internal/reminder"
 )
 
+const (
+	statusManualPaused = "manual_paused"
+	statusBreakMode    = "break_mode"
+	breakDuration      = 10 * time.Minute
+)
+
 type Snapshot struct {
 	Status               string `json:"status"`
 	IdleSeconds          int64  `json:"idle_seconds"`
@@ -21,6 +27,9 @@ type Snapshot struct {
 	CheckIntervalSeconds int    `json:"check_interval_seconds"`
 	NotificationTitle    string `json:"notification_title"`
 	NotificationMessage  string `json:"notification_message"`
+	Paused               bool   `json:"paused"`
+	OnBreak              bool   `json:"on_break"`
+	BreakEndsAt          string `json:"break_ends_at"`
 	UpdatedAt            string `json:"updated_at"`
 }
 
@@ -29,9 +38,11 @@ type App struct {
 	configPath string
 	cfg        config.Config
 	detector   activity.Detector
-	notifier   notify.WindowsNotifier
+	notifier   *notify.WindowsNotifier
 	engine     *reminder.Engine
 	state      Snapshot
+	paused     bool
+	breakUntil time.Time
 }
 
 func New(configPath string) (*App, error) {
@@ -40,15 +51,15 @@ func New(configPath string) (*App, error) {
 		return nil, err
 	}
 
+	n := notify.NewWindowsNotifier()
 	app := &App{
 		configPath: configPath,
 		cfg:        cfg,
 		detector:   activity.NewDetector(),
-		notifier:   notify.NewWindowsNotifier(),
+		notifier:   &n,
 	}
 	app.rebuildLocked(cfg)
-	app.state.Status = string(reminder.StateIdle)
-	app.state.UpdatedAt = time.Now().Format(time.RFC3339)
+	app.resetStateLocked(string(reminder.StateIdle))
 	return app, nil
 }
 
@@ -58,7 +69,45 @@ func (a *App) Run() {
 		interval := time.Duration(a.cfg.CheckIntervalSeconds) * time.Second
 		engine := a.engine
 		cfg := a.cfg
+		paused := a.paused
+		breakUntil := a.breakUntil
 		a.mu.RUnlock()
+
+		now := time.Now()
+		if !breakUntil.IsZero() {
+			if now.Before(breakUntil) {
+				a.mu.Lock()
+				a.state.Status = statusBreakMode
+				a.state.Paused = false
+				a.state.OnBreak = true
+				a.state.BreakEndsAt = breakUntil.Format(time.RFC3339)
+				a.state.UpdatedAt = now.Format(time.RFC3339)
+				a.mu.Unlock()
+				time.Sleep(interval)
+				continue
+			}
+
+			a.mu.Lock()
+			a.breakUntil = time.Time{}
+			a.paused = true
+			a.rebuildLocked(a.cfg)
+			a.resetStateLocked(statusManualPaused)
+			a.mu.Unlock()
+			time.Sleep(interval)
+			continue
+		}
+
+		if paused {
+			a.mu.Lock()
+			a.state.Status = statusManualPaused
+			a.state.Paused = true
+			a.state.OnBreak = false
+			a.state.BreakEndsAt = ""
+			a.state.UpdatedAt = now.Format(time.RFC3339)
+			a.mu.Unlock()
+			time.Sleep(interval)
+			continue
+		}
 
 		idle, err := a.detector.IdleDuration()
 		if err != nil {
@@ -71,15 +120,14 @@ func (a *App) Run() {
 
 		a.mu.Lock()
 		a.state.Status = string(result.State)
+		a.state.Paused = false
+		a.state.OnBreak = false
+		a.state.BreakEndsAt = ""
 		a.state.IdleSeconds = int64(idle / time.Second)
 		a.state.AccumulatedSeconds = int64(result.Accumulated / time.Second)
 		a.state.RemainingSeconds = int64(result.Remaining / time.Second)
-		a.state.UpdatedAt = time.Now().Format(time.RFC3339)
-		if result.State == reminder.StateIdleReset {
-			a.state.AccumulatedSeconds = 0
-			a.state.RemainingSeconds = int64(time.Duration(cfg.RemindAfterMinutes) * time.Minute / time.Second)
-		}
-		if result.State == reminder.StateReminderTriggered {
+		a.state.UpdatedAt = now.Format(time.RFC3339)
+		if result.State == reminder.StateIdleReset || result.State == reminder.StateReminderTriggered {
 			a.state.AccumulatedSeconds = 0
 			a.state.RemainingSeconds = int64(time.Duration(cfg.RemindAfterMinutes) * time.Minute / time.Second)
 		}
@@ -116,12 +164,10 @@ func (a *App) UpdateConfig(cfg config.Config) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.cfg = cfg
+	a.paused = false
+	a.breakUntil = time.Time{}
 	a.rebuildLocked(cfg)
-	a.state.Status = string(reminder.StateIdle)
-	a.state.IdleSeconds = 0
-	a.state.AccumulatedSeconds = 0
-	a.state.RemainingSeconds = int64(time.Duration(cfg.RemindAfterMinutes) * time.Minute / time.Second)
-	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
+	a.resetStateLocked(string(reminder.StateIdle))
 	log.Printf("config updated: remind_after=%dm idle_reset=%dm check_interval=%ds", cfg.RemindAfterMinutes, cfg.IdleResetMinutes, cfg.CheckIntervalSeconds)
 	return nil
 }
@@ -135,9 +181,60 @@ func (a *App) TestNotification() error {
 
 func (a *App) NotifyStarted(controlCenterURL string) error {
 	return a.notifier.Notify(
-		"Stand Reminder 已启动",
-		"程序已在系统托盘运行。单击托盘图标可打开控制中心："+controlCenterURL,
+		"Stand Reminder Started",
+		"Running in the system tray. Click the tray icon to open Control Center: "+controlCenterURL,
 	)
+}
+
+func (a *App) Pause() Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.paused = true
+	a.breakUntil = time.Time{}
+	a.state.Paused = true
+	a.state.OnBreak = false
+	a.state.BreakEndsAt = ""
+	a.state.Status = statusManualPaused
+	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
+	return a.state
+}
+
+func (a *App) Resume() Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.paused = false
+	a.breakUntil = time.Time{}
+	a.rebuildLocked(a.cfg)
+	a.resetStateLocked(string(reminder.StateIdle))
+	return a.state
+}
+
+func (a *App) StartBreak() Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.paused = false
+	a.breakUntil = time.Now().Add(breakDuration)
+	a.rebuildLocked(a.cfg)
+	a.state.Status = statusBreakMode
+	a.state.Paused = false
+	a.state.OnBreak = true
+	a.state.BreakEndsAt = a.breakUntil.Format(time.RFC3339)
+	a.state.IdleSeconds = 0
+	a.state.AccumulatedSeconds = 0
+	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
+	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
+	return a.state
+}
+
+func (a *App) resetStateLocked(status string) {
+	a.state.Status = status
+	a.state.Paused = a.paused
+	a.state.OnBreak = false
+	a.state.BreakEndsAt = ""
+	a.state.IdleSeconds = 0
+	a.state.AccumulatedSeconds = 0
+	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
+	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
 }
 
 func (a *App) rebuildLocked(cfg config.Config) {
@@ -151,5 +248,4 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.state.CheckIntervalSeconds = cfg.CheckIntervalSeconds
 	a.state.NotificationTitle = cfg.NotificationTitle
 	a.state.NotificationMessage = cfg.NotificationMessage
-	a.state.RemainingSeconds = int64(time.Duration(cfg.RemindAfterMinutes) * time.Minute / time.Second)
 }

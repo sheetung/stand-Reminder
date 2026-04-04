@@ -70,5 +70,4 @@ jobs:
           name: Stand Reminder ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            ${{ steps.meta.outputs.exe_name }}
             ${{ steps.meta.outputs.zip_name }}

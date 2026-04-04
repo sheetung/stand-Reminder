@@ -17,6 +17,10 @@ type Server struct {
 	app *app.App
 }
 
+type actionRequest struct {
+	Action string `json:"action"`
+}
+
 func NewServer(application *app.App) *Server {
 	return &Server{app: application}
 }
@@ -27,6 +31,7 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/test-notification", s.handleTestNotification)
+	mux.HandleFunc("/api/action", s.handleAction)
 	return http.ListenAndServe(addr, mux)
 }
 
@@ -84,6 +89,30 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"message": "notification sent"})
+}
+
+func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req actionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+
+	switch req.Action {
+	case "pause":
+		writeJSON(w, http.StatusOK, s.app.Pause())
+	case "resume":
+		writeJSON(w, http.StatusOK, s.app.Resume())
+	case "break":
+		writeJSON(w, http.StatusOK, s.app.StartBreak())
+	default:
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown action"})
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

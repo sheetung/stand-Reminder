@@ -16,7 +16,12 @@ const webAddress = "127.0.0.1:47831"
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	configPath := filepath.Join(".", "config.json")
+	exePath, err := os.Executable()
+	if err != nil {
+		log.Fatalf("failed to resolve executable path: %v", err)
+	}
+	configPath := filepath.Join(filepath.Dir(exePath), "config.json")
+
 	application, err := app.New(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {

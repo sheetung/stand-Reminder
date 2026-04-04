@@ -9,13 +9,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"unicode/utf16"
 )
 
 const appID = "StandReminder.App"
 
 type WindowsNotifier struct {
-	exePath string
+	exePath      string
+	shortcutOnce sync.Once
+	shortcutErr  error
 }
 
 func NewWindowsNotifier() WindowsNotifier {
@@ -23,7 +27,7 @@ func NewWindowsNotifier() WindowsNotifier {
 	return WindowsNotifier{exePath: exePath}
 }
 
-func (n WindowsNotifier) Notify(title, message string) error {
+func (n *WindowsNotifier) Notify(title, message string) error {
 	if err := n.ensureShortcut(); err != nil {
 		return err
 	}
@@ -48,9 +52,10 @@ func resolveNotificationTarget() (string, error) {
 	return exePath, nil
 }
 
-func (n WindowsNotifier) ensureShortcut() error {
-	shortcutPath := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Stand Reminder.lnk")
-	script := strings.TrimSpace(`
+func (n *WindowsNotifier) ensureShortcut() error {
+	n.shortcutOnce.Do(func() {
+		shortcutPath := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Stand Reminder.lnk")
+		script := strings.TrimSpace(`
 $ErrorActionPreference = 'Stop'
 $ShortcutPath = $env:STAND_SHORTCUT_PATH
 $TargetPath = $env:STAND_TARGET_PATH
@@ -158,14 +163,17 @@ if (-not (Test-Path $directory)) {
 [ShortcutHelper]::CreateShortcut($ShortcutPath, $TargetPath, $AppID)
 `)
 
-	return runPowerShell(script, map[string]string{
-		"STAND_SHORTCUT_PATH": shortcutPath,
-		"STAND_TARGET_PATH":   n.exePath,
-		"STAND_APP_ID":        appID,
+		n.shortcutErr = runPowerShell(script, map[string]string{
+			"STAND_SHORTCUT_PATH": shortcutPath,
+			"STAND_TARGET_PATH":   n.exePath,
+			"STAND_APP_ID":        appID,
+		})
 	})
+
+	return n.shortcutErr
 }
 
-func (n WindowsNotifier) showToast(title, message string) error {
+func (n *WindowsNotifier) showToast(title, message string) error {
 	script := strings.TrimSpace(`
 $ErrorActionPreference = 'Stop'
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
@@ -196,6 +204,7 @@ $notifier.Show($toast)
 func runPowerShell(script string, env map[string]string) error {
 	encoded := encodePowerShell(script)
 	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Env = append(os.Environ(), flattenEnv(env)...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {

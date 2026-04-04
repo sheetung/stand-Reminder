@@ -1,174 +1,126 @@
-<!doctype html>
-<html lang="en">
+﻿<!doctype html>
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stand Reminder Console</title>
+  <title>Stand Reminder Control Center</title>
   <style>
     :root {
       --ink: #1d1d1f;
       --muted: #6e6e73;
       --line: rgba(17, 24, 39, 0.1);
-      --surface: rgba(255, 255, 255, 0.84);
+      --surface: rgba(255, 255, 255, 0.86);
       --accent: #1976d2;
       --accent-strong: #0f5baa;
       --good: #13795b;
       --warn: #c76b00;
+      --danger: #b42318;
+      --soft: rgba(17, 24, 39, 0.06);
       --bg1: #f4f7fb;
       --bg2: #edf7f3;
       --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
       --radius: 24px;
     }
+
     * { box-sizing: border-box; }
+
     body {
       margin: 0;
       font-family: "Segoe UI", "PingFang SC", sans-serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top left, rgba(25,118,210,0.16), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(19,121,91,0.18), transparent 30%),
+        radial-gradient(circle at top left, rgba(25, 118, 210, 0.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(19, 121, 91, 0.18), transparent 30%),
         linear-gradient(135deg, var(--bg1), var(--bg2));
       min-height: 100vh;
     }
+
     .shell {
       width: min(1120px, calc(100% - 32px));
       margin: 28px auto;
       padding: 28px;
       border-radius: 32px;
-      background: rgba(255,255,255,0.66);
+      background: rgba(255, 255, 255, 0.66);
       backdrop-filter: blur(24px);
       box-shadow: var(--shadow);
-      border: 1px solid rgba(255,255,255,0.55);
+      border: 1px solid rgba(255, 255, 255, 0.55);
     }
-    .hero {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 24px;
-      align-items: stretch;
-      margin-bottom: 24px;
-    }
-    .hero-card, .panel {
+
+    .stack { display: grid; gap: 24px; }
+
+    .hero,
+    .status-panel,
+    .panel {
+      height: 100%;
       background: var(--surface);
       border: 1px solid var(--line);
       border-radius: var(--radius);
       padding: 24px;
       box-shadow: 0 8px 30px rgba(16, 24, 40, 0.06);
     }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
     .eyebrow {
       display: inline-flex;
-      gap: 10px;
       align-items: center;
       padding: 8px 12px;
       border-radius: 999px;
-      background: rgba(25,118,210,0.08);
+      background: rgba(25, 118, 210, 0.08);
       color: var(--accent-strong);
       font-size: 13px;
       font-weight: 600;
-      letter-spacing: 0.02em;
     }
+
+    .lang-switch {
+      display: flex;
+      gap: 8px;
+      background: rgba(17, 24, 39, 0.05);
+      padding: 6px;
+      border-radius: 999px;
+    }
+
+    .lang-switch button {
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: transparent;
+      color: var(--muted);
+      box-shadow: none;
+    }
+
+    .lang-switch button.active {
+      background: #fff;
+      color: var(--ink);
+      box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
+    }
+
     h1 {
       margin: 16px 0 12px;
-      font-size: clamp(32px, 5vw, 52px);
-      line-height: 1.02;
-      letter-spacing: -0.04em;
+      font-size: clamp(28px, 4vw, 42px);
+      line-height: 1.08;
     }
+
     .sub {
       margin: 0;
       color: var(--muted);
       font-size: 16px;
       line-height: 1.6;
-      max-width: 44ch;
     }
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 600;
-      background: rgba(19,121,91,0.08);
-      color: var(--good);
-      margin-bottom: 14px;
-    }
-    .status-chip.paused { background: rgba(199,107,0,0.12); color: var(--warn); }
-    .status-chip.idle, .status-chip.idle_reset { background: rgba(110,110,115,0.12); color: var(--muted); }
-    .status-chip.reminder_triggered { background: rgba(25,118,210,0.12); color: var(--accent-strong); }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 16px;
-      margin-top: 18px;
-    }
-    .metric {
-      padding: 18px;
-      border-radius: 20px;
-      background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(247,250,253,0.92));
-      border: 1px solid rgba(17,24,39,0.06);
-    }
-    .metric span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
-    .metric strong {
-      font-size: clamp(24px, 4vw, 38px);
-      letter-spacing: -0.04em;
-    }
-    .layout {
-      display: grid;
-      grid-template-columns: 1.05fr 0.95fr;
-      gap: 24px;
-    }
-    .panel h2 {
-      margin: 0 0 16px;
-      font-size: 22px;
-      letter-spacing: -0.02em;
-    }
-    .hint {
-      color: var(--muted);
-      font-size: 14px;
-      margin: 0 0 18px;
-      line-height: 1.5;
-    }
-    form {
-      display: grid;
-      gap: 16px;
-    }
-    .field-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
-    }
-    label {
-      display: grid;
-      gap: 8px;
-      font-size: 14px;
-      color: var(--muted);
-    }
-    input, textarea {
-      width: 100%;
-      border: 1px solid rgba(17, 24, 39, 0.12);
-      border-radius: 16px;
-      padding: 14px 16px;
-      font: inherit;
-      color: var(--ink);
-      background: rgba(255,255,255,0.9);
-      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
-    }
-    input:focus, textarea:focus {
-      outline: none;
-      border-color: rgba(25,118,210,0.55);
-      box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
-      transform: translateY(-1px);
-    }
-    textarea { min-height: 112px; resize: vertical; }
+
+    .quick-actions,
     .actions {
       display: flex;
-      gap: 12px;
       flex-wrap: wrap;
-      margin-top: 6px;
+      gap: 12px;
     }
+
+    .quick-actions { margin-top: 22px; }
+
     button {
       border: 0;
       border-radius: 999px;
@@ -176,125 +128,354 @@
       font: inherit;
       font-weight: 700;
       cursor: pointer;
-      transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+      transition: transform 0.16s ease;
     }
+
     button:hover { transform: translateY(-1px); }
-    .primary {
+    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+    .primary,
+    .quick-primary {
       background: linear-gradient(135deg, var(--accent), #46a0ff);
       color: #fff;
-      box-shadow: 0 12px 24px rgba(25,118,210,0.22);
+      box-shadow: 0 12px 24px rgba(25, 118, 210, 0.22);
     }
-    .secondary {
-      background: rgba(17,24,39,0.06);
+
+    .secondary,
+    .quick-secondary {
+      background: var(--soft);
       color: var(--ink);
     }
-    .log {
+
+    .quick-danger {
+      background: rgba(199, 107, 0, 0.12);
+      color: var(--warn);
+    }
+
+    .quick-guide,
+    .metrics,
+    .field-grid {
       display: grid;
       gap: 14px;
     }
-    .log-card {
-      padding: 16px 18px;
+
+    .quick-guide {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      margin-top: 18px;
+    }
+
+    .metrics {
+      grid-template-columns: 1fr;
+      margin-top: 18px;
+    }
+
+    .field-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .top-row {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .guide-card,
+    .metric {
       border-radius: 18px;
-      border: 1px solid rgba(17,24,39,0.08);
-      background: rgba(255,255,255,0.78);
+      padding: 16px 18px;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(17, 24, 39, 0.08);
     }
-    .log-card strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 15px;
+
+    .guide-card strong { display: block; margin-bottom: 6px; }
+    .guide-card span,
+    .hint,
+    label,
+    .message { color: var(--muted); }
+
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-weight: 600;
+      background: rgba(19, 121, 91, 0.08);
+      color: var(--good);
+      margin-bottom: 14px;
     }
-    .message {
-      margin-top: 14px;
-      min-height: 22px;
-      font-size: 14px;
+
+    .status-chip.paused,
+    .status-chip.manual_paused,
+    .status-chip.break_mode {
+      background: rgba(199, 107, 0, 0.12);
+      color: var(--warn);
+    }
+
+    .status-chip.idle,
+    .status-chip.idle_reset {
+      background: rgba(110, 110, 115, 0.12);
       color: var(--muted);
     }
+
+    .status-chip.reminder_triggered {
+      background: rgba(25, 118, 210, 0.12);
+      color: var(--accent-strong);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: clamp(20px, 2.8vw, 30px);
+      line-height: 1.15;
+    }
+
+    .panel h2 { margin: 0 0 16px; font-size: 22px; }
+    .hint { font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
+    form { display: grid; gap: 16px; }
+    label { display: grid; gap: 8px; font-size: 14px; }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid rgba(17, 24, 39, 0.12);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    textarea { min-height: 112px; resize: vertical; }
+    .message { margin-top: 14px; min-height: 22px; font-size: 14px; }
     .message.ok { color: var(--good); }
-    .message.error { color: #b42318; }
+    .message.error { color: var(--danger); }
+    .message.warn { color: var(--warn); }
+
+    .break-card { margin-top: 16px; display: none; }
+    .break-card.active { display: block; }
+    .break-timer { font-size: 32px; font-weight: 800; margin-top: 8px; }
+
     @media (max-width: 860px) {
-      .hero, .layout, .field-grid, .grid { grid-template-columns: 1fr; }
+      .top-row,
+      .field-grid,
+      .quick-guide { grid-template-columns: 1fr; }
       .shell { width: min(100% - 20px, 1120px); padding: 18px; margin: 14px auto; }
+      .toolbar { flex-direction: column; align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
-    <section class="hero">
-      <article class="hero-card">
-        <div class="eyebrow">Stand Reminder Console</div>
-        <h1>把久坐提醒变得可见、可调、可测试。</h1>
-        <p class="sub">这个控制台只跑在本机 `127.0.0.1`。你可以一边看实时状态，一边修改提醒参数，不需要再盯着终端日志。</p>
-      </article>
-      <article class="hero-card">
-        <div id="statusChip" class="status-chip">Loading</div>
-        <div class="grid">
-          <div class="metric"><span>已累计</span><strong id="accumulatedValue">--</strong></div>
-          <div class="metric"><span>剩余</span><strong id="remainingValue">--</strong></div>
-          <div class="metric"><span>空闲</span><strong id="idleValue">--</strong></div>
+    <section class="stack">
+      <section class="top-row">
+        <article class="hero">
+        <div class="toolbar">
+          <div class="eyebrow" data-i18n="eyebrow">Stand Reminder Console</div>
+          <div class="lang-switch">
+            <button id="langZh" class="active" type="button">中文</button>
+            <button id="langEn" type="button">EN</button>
+          </div>
+        </div>
+        <h1 data-i18n="heroTitle">快速控制区</h1>
+        <p class="sub" data-i18n="heroSub">这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。</p>
+        <div class="quick-actions">
+          <button class="quick-primary" type="button" id="heroTestButton" data-i18n="btnTest">测试通知</button>
+          <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause">暂停</button>
+          <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume">开始 / 恢复</button>
+          <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak">我已起身活动</button>
+          <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh">刷新</button>
+        </div>
+        <div id="breakCard" class="guide-card break-card">
+          <strong data-i18n="breakTitle">活动休息</strong>
+          <span data-i18n="breakSub">休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。</span>
+          <div id="breakTimer" class="break-timer">10:00</div>
+        </div>
+        <div class="quick-guide">
+          <div class="guide-card">
+            <strong data-i18n="guidePauseTitle">暂停</strong>
+            <span data-i18n="guidePauseBody">临时停止累计并且不再提醒，适合开会或暂时不想被打扰。</span>
+          </div>
+          <div class="guide-card">
+            <strong data-i18n="guideBreakTitle">我已起身活动</strong>
+            <span data-i18n="guideBreakBody">立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。</span>
+          </div>
         </div>
       </article>
-    </section>
 
-    <section class="layout">
+        <article class="status-panel">
+        <div id="statusChip" class="status-chip">加载中</div>
+        <div class="metrics">
+          <div class="metric"><span data-i18n="metricAccumulated">已累计</span><strong id="accumulatedValue">--</strong></div>
+          <div class="metric"><span data-i18n="metricRemaining">剩余</span><strong id="remainingValue">--</strong></div>
+          <div class="metric"><span data-i18n="metricIdle">空闲</span><strong id="idleValue">--</strong></div>
+        </div>
+      </article>
+      </section>
+
       <article class="panel">
-        <h2>Reminder Settings</h2>
-        <p class="hint">修改后会立即保存到 `config.json`，并重置当前累计状态。适合快速调试提醒节奏。</p>
+        <h2 data-i18n="settingsTitle">提醒设置</h2>
+        <p class="hint" data-i18n="settingsHint">保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。</p>
         <form id="configForm">
           <div class="field-grid">
-            <label>提醒分钟数
+            <label>
+              <span data-i18n="labelRemindAfter">提醒分钟数</span>
               <input id="remindAfterMinutes" type="number" min="1" required />
             </label>
-            <label>空闲重置分钟数
+            <label>
+              <span data-i18n="labelIdleReset">空闲重置分钟数</span>
               <input id="idleResetMinutes" type="number" min="1" required />
             </label>
           </div>
           <div class="field-grid">
-            <label>检测间隔秒数
+            <label>
+              <span data-i18n="labelCheckInterval">检测间隔秒数</span>
               <input id="checkIntervalSeconds" type="number" min="1" required />
             </label>
-            <label>通知标题
+            <label>
+              <span data-i18n="labelTitle">通知标题</span>
               <input id="notificationTitle" type="text" required />
             </label>
           </div>
-          <label>通知内容
+          <label>
+            <span data-i18n="labelMessage">通知内容</span>
             <textarea id="notificationMessage" required></textarea>
           </label>
           <div class="actions">
-            <button class="primary" type="submit">保存设置</button>
-            <button class="secondary" type="button" id="testButton">测试通知</button>
+            <button class="primary" type="submit" data-i18n="btnSave">保存设置</button>
+            <button class="secondary" type="button" id="testButton" data-i18n="btnTest">测试通知</button>
           </div>
         </form>
         <div id="message" class="message"></div>
-      </article>
-
-      <article class="panel">
-        <h2>Live Overview</h2>
-        <div class="log">
-          <div class="log-card">
-            <strong>当前状态</strong>
-            <div id="statusText">--</div>
-          </div>
-          <div class="log-card">
-            <strong>通知标题</strong>
-            <div id="titleText">--</div>
-          </div>
-          <div class="log-card">
-            <strong>通知内容</strong>
-            <div id="messageText">--</div>
-          </div>
-          <div class="log-card">
-            <strong>最后刷新</strong>
-            <div id="updatedAtText">--</div>
-          </div>
-        </div>
       </article>
     </section>
   </main>
 
   <script>
+    const i18n = {
+      zh: {
+        eyebrow: 'Stand Reminder Console',
+        heroTitle: '快速控制区',
+        heroSub: '这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。',
+        btnTest: '测试通知',
+        btnPause: '暂停',
+        btnResume: '开始 / 恢复',
+        btnBreak: '我已起身活动',
+        btnRefresh: '刷新',
+        btnSave: '保存设置',
+        breakTitle: '活动休息',
+        breakSub: '休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。',
+        guidePauseTitle: '暂停',
+        guidePauseBody: '临时停止累计并且不再提醒，适合开会或暂时不想被打扰。',
+        guideBreakTitle: '我已起身活动',
+        guideBreakBody: '立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。',
+        metricAccumulated: '已累计',
+        metricRemaining: '剩余',
+        metricIdle: '空闲',
+        settingsTitle: '提醒设置',
+        settingsHint: '保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。',
+        labelRemindAfter: '提醒分钟数',
+        labelIdleReset: '空闲重置分钟数',
+        labelCheckInterval: '检测间隔秒数',
+        labelTitle: '通知标题',
+        labelMessage: '通知内容',
+        status: {
+          active: '计时中',
+          paused: '自动暂停',
+          manual_paused: '已手动暂停',
+          break_mode: '活动休息中',
+          idle: '空闲中',
+          idle_reset: '空闲已重置',
+          reminder_triggered: '刚触发提醒'
+        },
+        msgSaving: '正在保存...',
+        msgSaved: '已保存，计时器已按新设置重新开始。',
+        msgSaveFailed: '保存失败',
+        msgSending: '正在发送测试通知...',
+        msgSent: '通知已发送。',
+        msgTestFailed: '测试失败',
+        msgActionFailed: '操作失败',
+        msgPaused: '已暂停提醒。',
+        msgResumed: '已开始 / 恢复计时。',
+        msgBreakStarted: '已进入 10 分钟活动休息。',
+        msgRefreshed: '状态已刷新。',
+        msgEditing: '你有未保存的修改，状态会继续刷新，但表单不会被覆盖。',
+        breakDone: '休息已结束，请手动点击“开始 / 恢复”继续计时。'
+      },
+      en: {
+        eyebrow: 'Stand Reminder Console',
+        heroTitle: 'Quick Controls',
+        heroSub: 'Use these controls to pause reminders, resume counting, start a 10-minute movement break, or send a test notification.',
+        btnTest: 'Test Notification',
+        btnPause: 'Pause',
+        btnResume: 'Start / Resume',
+        btnBreak: 'I Took a Break',
+        btnRefresh: 'Refresh',
+        btnSave: 'Save Settings',
+        breakTitle: 'Movement Break',
+        breakSub: 'When the break ends, the timer stays stopped until you click Start / Resume.',
+        guidePauseTitle: 'Pause',
+        guidePauseBody: 'Temporarily stop counting and suppress reminders while you are busy.',
+        guideBreakTitle: 'I Took a Break',
+        guideBreakBody: 'Stop the sitting timer immediately and start a 10-minute movement timer on this page.',
+        metricAccumulated: 'Accumulated',
+        metricRemaining: 'Remaining',
+        metricIdle: 'Idle',
+        settingsTitle: 'Reminder Settings',
+        settingsHint: 'Saving writes to config.json immediately and resets the timer using the new schedule. Auto refresh will not overwrite the form while you are editing.',
+        labelRemindAfter: 'Remind After Minutes',
+        labelIdleReset: 'Idle Reset Minutes',
+        labelCheckInterval: 'Check Interval Seconds',
+        labelTitle: 'Notification Title',
+        labelMessage: 'Notification Message',
+        status: {
+          active: 'Active',
+          paused: 'Auto Paused',
+          manual_paused: 'Paused by You',
+          break_mode: 'On Break',
+          idle: 'Idle',
+          idle_reset: 'Idle Reset',
+          reminder_triggered: 'Reminder Triggered'
+        },
+        msgSaving: 'Saving...',
+        msgSaved: 'Saved. Timer restarted with the new settings.',
+        msgSaveFailed: 'Save failed',
+        msgSending: 'Sending test notification...',
+        msgSent: 'Notification sent.',
+        msgTestFailed: 'Test failed',
+        msgActionFailed: 'Action failed',
+        msgPaused: 'Reminder paused.',
+        msgResumed: 'Timer started again.',
+        msgBreakStarted: 'Break started. 10-minute activity timer is running.',
+        msgRefreshed: 'Status refreshed.',
+        msgEditing: 'You have unsaved changes. Live status still refreshes, but the form will not be overwritten.',
+        breakDone: 'Break finished. Click Start / Resume when you want to continue counting.'
+      }
+    };
+
+    let currentLang = 'zh';
+    let breakEndsAt = null;
+    let breakDoneNotified = false;
+    let formDirty = false;
+
     const form = document.getElementById('configForm');
     const messageEl = document.getElementById('message');
     const testButton = document.getElementById('testButton');
+    const heroTestButton = document.getElementById('heroTestButton');
+    const heroPauseButton = document.getElementById('heroPauseButton');
+    const heroResumeButton = document.getElementById('heroResumeButton');
+    const heroBreakButton = document.getElementById('heroBreakButton');
+    const heroRefreshButton = document.getElementById('heroRefreshButton');
+    const langZh = document.getElementById('langZh');
+    const langEn = document.getElementById('langEn');
+    const breakCard = document.getElementById('breakCard');
+    const breakTimer = document.getElementById('breakTimer');
 
     const fields = {
       remind_after_minutes: document.getElementById('remindAfterMinutes'),
@@ -303,6 +484,19 @@
       notification_title: document.getElementById('notificationTitle'),
       notification_message: document.getElementById('notificationMessage'),
     };
+
+    function t(key) {
+      return i18n[currentLang][key] || key;
+    }
+
+    function applyLanguage() {
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.querySelectorAll('[data-i18n]').forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+      langZh.classList.toggle('active', currentLang === 'zh');
+      langEn.classList.toggle('active', currentLang === 'en');
+    }
 
     function formatDuration(totalSeconds) {
       const safe = Math.max(0, Number(totalSeconds || 0));
@@ -314,35 +508,78 @@
       return `${seconds}s`;
     }
 
+    function formatClock(totalSeconds) {
+      const safe = Math.max(0, Number(totalSeconds || 0));
+      const minutes = Math.floor(safe / 60).toString().padStart(2, '0');
+      const seconds = Math.floor(safe % 60).toString().padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
     function prettyStatus(status) {
-      const map = {
-        active: 'Active',
-        paused: 'Paused',
-        idle: 'Idle',
-        idle_reset: 'Idle Reset',
-        reminder_triggered: 'Reminder Triggered',
-      };
-      return map[status] || status || 'Unknown';
+      return i18n[currentLang].status[status] || status || 'Unknown';
+    }
+
+    function setMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`.trim();
+    }
+
+    function markDirty() {
+      formDirty = true;
+      setMessage(t('msgEditing'), 'warn');
+    }
+
+    function fillForm(data) {
+      fields.remind_after_minutes.value = data.remind_after_minutes;
+      fields.idle_reset_minutes.value = data.idle_reset_minutes;
+      fields.check_interval_seconds.value = data.check_interval_seconds;
+      fields.notification_title.value = data.notification_title;
+      fields.notification_message.value = data.notification_message;
+      formDirty = false;
+    }
+
+    function updateBreakTimer() {
+      if (!breakEndsAt) {
+        breakCard.classList.remove('active');
+        breakDoneNotified = false;
+        return;
+      }
+
+      const diff = Math.max(0, Math.floor((breakEndsAt - Date.now()) / 1000));
+      breakCard.classList.add('active');
+      breakTimer.textContent = formatClock(diff);
+
+      if (diff === 0) {
+        breakEndsAt = null;
+        if (!breakDoneNotified) {
+          setMessage(t('breakDone'), 'ok');
+          breakDoneNotified = true;
+        }
+      }
     }
 
     function render(data) {
       document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
       document.getElementById('idleValue').textContent = formatDuration(data.idle_seconds);
-      document.getElementById('statusText').textContent = prettyStatus(data.status);
-      document.getElementById('titleText').textContent = data.notification_title;
-      document.getElementById('messageText').textContent = data.notification_message;
-      document.getElementById('updatedAtText').textContent = new Date(data.updated_at).toLocaleString();
 
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);
       chip.className = `status-chip ${data.status || ''}`;
 
-      fields.remind_after_minutes.value = data.remind_after_minutes;
-      fields.idle_reset_minutes.value = data.idle_reset_minutes;
-      fields.check_interval_seconds.value = data.check_interval_seconds;
-      fields.notification_title.value = data.notification_title;
-      fields.notification_message.value = data.notification_message;
+      if (!formDirty) {
+        fillForm(data);
+      }
+
+      heroPauseButton.disabled = Boolean(data.paused) || Boolean(data.on_break);
+      heroResumeButton.disabled = !data.paused && !data.on_break;
+      heroBreakButton.disabled = Boolean(data.on_break);
+
+      breakEndsAt = data.break_ends_at ? Date.parse(data.break_ends_at) : null;
+      if (breakEndsAt) {
+        breakDoneNotified = false;
+      }
+      updateBreakTimer();
     }
 
     async function refresh() {
@@ -352,15 +589,8 @@
       render(data);
     }
 
-    function setMessage(text, type = '') {
-      messageEl.textContent = text;
-      messageEl.className = `message ${type}`.trim();
-    }
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      setMessage('Saving...');
-
+    async function saveConfig() {
+      setMessage(t('msgSaving'));
       const payload = {
         remind_after_minutes: Number(fields.remind_after_minutes.value),
         idle_reset_minutes: Number(fields.idle_reset_minutes.value),
@@ -376,27 +606,91 @@
       });
       const data = await response.json();
       if (!response.ok) {
-        setMessage(data.error || 'Save failed', 'error');
-        return;
+        setMessage(data.error || t('msgSaveFailed'), 'error');
+        return false;
       }
 
-      setMessage('Saved. The timer has been reset with the new settings.', 'ok');
+      formDirty = false;
+      setMessage(t('msgSaved'), 'ok');
       await refresh();
-    });
+      return true;
+    }
 
-    testButton.addEventListener('click', async () => {
-      setMessage('Sending test notification...');
+    async function sendTestNotification() {
+      setMessage(t('msgSending'));
       const response = await fetch('/api/test-notification', { method: 'POST' });
       const data = await response.json();
       if (!response.ok) {
-        setMessage(data.error || 'Test failed', 'error');
+        setMessage(data.error || t('msgTestFailed'), 'error');
         return;
       }
-      setMessage('Notification sent.', 'ok');
+      setMessage(t('msgSent'), 'ok');
+    }
+
+    async function runAction(action, successText) {
+      const response = await fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || t('msgActionFailed'), 'error');
+        return;
+      }
+      render(data);
+      setMessage(successText, 'ok');
+    }
+
+    Object.values(fields).forEach((field) => {
+      field.addEventListener('input', markDirty);
+      field.addEventListener('change', markDirty);
     });
 
+    langZh.addEventListener('click', () => {
+      currentLang = 'zh';
+      applyLanguage();
+      if (formDirty) {
+        setMessage(t('msgEditing'), 'warn');
+      }
+      refresh().catch(() => {});
+    });
+
+    langEn.addEventListener('click', () => {
+      currentLang = 'en';
+      applyLanguage();
+      if (formDirty) {
+        setMessage(t('msgEditing'), 'warn');
+      }
+      refresh().catch(() => {});
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await saveConfig();
+    });
+
+    testButton.addEventListener('click', sendTestNotification);
+    heroTestButton.addEventListener('click', sendTestNotification);
+    heroPauseButton.addEventListener('click', () => runAction('pause', t('msgPaused')));
+    heroResumeButton.addEventListener('click', () => runAction('resume', t('msgResumed')));
+    heroBreakButton.addEventListener('click', () => runAction('break', t('msgBreakStarted')));
+    heroRefreshButton.addEventListener('click', async () => {
+      await refresh();
+      if (!formDirty) {
+        setMessage(t('msgRefreshed'), 'ok');
+      }
+    });
+
+    applyLanguage();
     refresh().catch((error) => setMessage(error.message, 'error'));
     setInterval(() => refresh().catch(() => {}), 2000);
+    setInterval(updateBreakTimer, 1000);
   </script>
 </body>
 </html>
+
+
+
+
+
