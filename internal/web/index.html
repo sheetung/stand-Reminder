@@ -315,6 +315,7 @@
           <div class="metric"><span data-i18n="metricAccumulated">已累计</span><strong id="accumulatedValue">--</strong></div>
           <div class="metric"><span data-i18n="metricRemaining">剩余</span><strong id="remainingValue">--</strong></div>
           <div class="metric"><span data-i18n="metricIdle">空闲</span><strong id="idleValue">--</strong></div>
+          <div class="metric"><span data-i18n="metricMedia">媒体播放</span><strong id="mediaValue">--</strong></div>
         </div>
       </article>
       </section>
@@ -378,6 +379,7 @@
         metricAccumulated: '已累计',
         metricRemaining: '剩余',
         metricIdle: '空闲',
+        metricMedia: '媒体播放',
         settingsTitle: '提醒设置',
         settingsHint: '保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。',
         labelRemindAfter: '提醒分钟数',
@@ -427,6 +429,7 @@
         metricAccumulated: 'Accumulated',
         metricRemaining: 'Remaining',
         metricIdle: 'Idle',
+        metricMedia: 'Media Playback',
         settingsTitle: 'Reminder Settings',
         settingsHint: 'Saving writes to config.json immediately and resets the timer using the new schedule. Auto refresh will not overwrite the form while you are editing.',
         labelRemindAfter: 'Remind After Minutes',
@@ -562,6 +565,9 @@
       document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
       document.getElementById('idleValue').textContent = formatDuration(data.idle_seconds);
+      document.getElementById('mediaValue').textContent = data.media_playing
+        ? (currentLang === 'zh' ? '播放中' : 'Playing')
+        : (currentLang === 'zh' ? '未播放' : 'Not Playing');
 
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);

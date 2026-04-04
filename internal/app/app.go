@@ -20,6 +20,7 @@ const (
 type Snapshot struct {
 	Status               string `json:"status"`
 	IdleSeconds          int64  `json:"idle_seconds"`
+	MediaPlaying         bool   `json:"media_playing"`
 	AccumulatedSeconds   int64  `json:"accumulated_seconds"`
 	RemainingSeconds     int64  `json:"remaining_seconds"`
 	RemindAfterMinutes   int    `json:"remind_after_minutes"`
@@ -81,6 +82,7 @@ func (a *App) Run() {
 				a.state.Paused = false
 				a.state.OnBreak = true
 				a.state.BreakEndsAt = breakUntil.Format(time.RFC3339)
+				a.state.MediaPlaying = false
 				a.state.UpdatedAt = now.Format(time.RFC3339)
 				a.mu.Unlock()
 				time.Sleep(interval)
@@ -103,6 +105,7 @@ func (a *App) Run() {
 			a.state.Paused = true
 			a.state.OnBreak = false
 			a.state.BreakEndsAt = ""
+			a.state.MediaPlaying = false
 			a.state.UpdatedAt = now.Format(time.RFC3339)
 			a.mu.Unlock()
 			time.Sleep(interval)
@@ -116,14 +119,25 @@ func (a *App) Run() {
 			continue
 		}
 
-		result := engine.Update(idle)
+		mediaPlaying, err := a.detector.MediaPlaying()
+		if err != nil {
+			log.Printf("failed to read media playback state: %v", err)
+		}
+
+		effectiveIdle := idle
+		if mediaPlaying {
+			effectiveIdle = 0
+		}
+
+		result := engine.Update(effectiveIdle)
 
 		a.mu.Lock()
 		a.state.Status = string(result.State)
 		a.state.Paused = false
 		a.state.OnBreak = false
 		a.state.BreakEndsAt = ""
-		a.state.IdleSeconds = int64(idle / time.Second)
+		a.state.IdleSeconds = int64(effectiveIdle / time.Second)
+		a.state.MediaPlaying = mediaPlaying
 		a.state.AccumulatedSeconds = int64(result.Accumulated / time.Second)
 		a.state.RemainingSeconds = int64(result.Remaining / time.Second)
 		a.state.UpdatedAt = now.Format(time.RFC3339)
@@ -140,7 +154,7 @@ func (a *App) Run() {
 				log.Printf("failed to send notification: %v", err)
 			}
 		case reminder.StateIdleReset:
-			log.Printf("idle reset: idle=%s previous_accumulated=%s", idle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
+			log.Printf("idle reset: idle=%s previous_accumulated=%s", effectiveIdle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
 		}
 
 		time.Sleep(interval)
@@ -194,6 +208,7 @@ func (a *App) Pause() Snapshot {
 	a.state.Paused = true
 	a.state.OnBreak = false
 	a.state.BreakEndsAt = ""
+	a.state.MediaPlaying = false
 	a.state.Status = statusManualPaused
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
 	return a.state
@@ -220,6 +235,7 @@ func (a *App) StartBreak() Snapshot {
 	a.state.OnBreak = true
 	a.state.BreakEndsAt = a.breakUntil.Format(time.RFC3339)
 	a.state.IdleSeconds = 0
+	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
@@ -232,6 +248,7 @@ func (a *App) resetStateLocked(status string) {
 	a.state.OnBreak = false
 	a.state.BreakEndsAt = ""
 	a.state.IdleSeconds = 0
+	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
