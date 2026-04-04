@@ -36,7 +36,14 @@ func main() {
 		}
 	}()
 
-	if err := tray.Run("http://" + webAddress); err != nil {
+	controlCenterURL := "http://" + webAddress
+	go func() {
+		if err := application.NotifyStarted(controlCenterURL); err != nil {
+			log.Printf("failed to send startup notification: %v", err)
+		}
+	}()
+
+	if err := tray.Run(controlCenterURL); err != nil {
 		log.Fatalf("tray failed: %v", err)
 	}
 }

@@ -133,6 +133,13 @@ func (a *App) TestNotification() error {
 	return a.notifier.Notify(cfg.NotificationTitle, cfg.NotificationMessage)
 }
 
+func (a *App) NotifyStarted(controlCenterURL string) error {
+	return a.notifier.Notify(
+		"Stand Reminder 已启动",
+		"程序已在系统托盘运行。单击托盘图标可打开控制中心："+controlCenterURL,
+	)
+}
+
 func (a *App) rebuildLocked(cfg config.Config) {
 	a.engine = reminder.NewEngine(reminder.Config{
 		RemindAfter:   time.Duration(cfg.RemindAfterMinutes) * time.Minute,
