@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stand Reminder Console</title>
+  <style>
+    :root {
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --line: rgba(17, 24, 39, 0.1);
+      --surface: rgba(255, 255, 255, 0.84);
+      --accent: #1976d2;
+      --accent-strong: #0f5baa;
+      --good: #13795b;
+      --warn: #c76b00;
+      --bg1: #f4f7fb;
+      --bg2: #edf7f3;
+      --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
+      --radius: 24px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(25,118,210,0.16), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(19,121,91,0.18), transparent 30%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+      min-height: 100vh;
+    }
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 28px auto;
+      padding: 28px;
+      border-radius: 32px;
+      background: rgba(255,255,255,0.66);
+      backdrop-filter: blur(24px);
+      box-shadow: var(--shadow);
+      border: 1px solid rgba(255,255,255,0.55);
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 24px;
+      align-items: stretch;
+      margin-bottom: 24px;
+    }
+    .hero-card, .panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 8px 30px rgba(16, 24, 40, 0.06);
+    }
+    .eyebrow {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(25,118,210,0.08);
+      color: var(--accent-strong);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.02;
+      letter-spacing: -0.04em;
+    }
+    .sub {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.6;
+      max-width: 44ch;
+    }
+    .status-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      font-weight: 600;
+      background: rgba(19,121,91,0.08);
+      color: var(--good);
+      margin-bottom: 14px;
+    }
+    .status-chip.paused { background: rgba(199,107,0,0.12); color: var(--warn); }
+    .status-chip.idle, .status-chip.idle_reset { background: rgba(110,110,115,0.12); color: var(--muted); }
+    .status-chip.reminder_triggered { background: rgba(25,118,210,0.12); color: var(--accent-strong); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+    .metric {
+      padding: 18px;
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(247,250,253,0.92));
+      border: 1px solid rgba(17,24,39,0.06);
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 10px;
+    }
+    .metric strong {
+      font-size: clamp(24px, 4vw, 38px);
+      letter-spacing: -0.04em;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 24px;
+    }
+    .panel h2 {
+      margin: 0 0 16px;
+      font-size: 22px;
+      letter-spacing: -0.02em;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 14px;
+      margin: 0 0 18px;
+      line-height: 1.5;
+    }
+    form {
+      display: grid;
+      gap: 16px;
+    }
+    .field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    label {
+      display: grid;
+      gap: 8px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    input, textarea {
+      width: 100%;
+      border: 1px solid rgba(17, 24, 39, 0.12);
+      border-radius: 16px;
+      padding: 14px 16px;
+      font: inherit;
+      color: var(--ink);
+      background: rgba(255,255,255,0.9);
+      transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+    }
+    input:focus, textarea:focus {
+      outline: none;
+      border-color: rgba(25,118,210,0.55);
+      box-shadow: 0 0 0 4px rgba(25,118,210,0.12);
+      transform: translateY(-1px);
+    }
+    textarea { min-height: 112px; resize: vertical; }
+    .actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 13px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .16s ease, box-shadow .16s ease, opacity .16s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .primary {
+      background: linear-gradient(135deg, var(--accent), #46a0ff);
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(25,118,210,0.22);
+    }
+    .secondary {
+      background: rgba(17,24,39,0.06);
+      color: var(--ink);
+    }
+    .log {
+      display: grid;
+      gap: 14px;
+    }
+    .log-card {
+      padding: 16px 18px;
+      border-radius: 18px;
+      border: 1px solid rgba(17,24,39,0.08);
+      background: rgba(255,255,255,0.78);
+    }
+    .log-card strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+    .message {
+      margin-top: 14px;
+      min-height: 22px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .message.ok { color: var(--good); }
+    .message.error { color: #b42318; }
+    @media (max-width: 860px) {
+      .hero, .layout, .field-grid, .grid { grid-template-columns: 1fr; }
+      .shell { width: min(100% - 20px, 1120px); padding: 18px; margin: 14px auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <article class="hero-card">
+        <div class="eyebrow">Stand Reminder Console</div>
+        <h1>把久坐提醒变得可见、可调、可测试。</h1>
+        <p class="sub">这个控制台只跑在本机 `127.0.0.1`。你可以一边看实时状态，一边修改提醒参数，不需要再盯着终端日志。</p>
+      </article>
+      <article class="hero-card">
+        <div id="statusChip" class="status-chip">Loading</div>
+        <div class="grid">
+          <div class="metric"><span>已累计</span><strong id="accumulatedValue">--</strong></div>
+          <div class="metric"><span>剩余</span><strong id="remainingValue">--</strong></div>
+          <div class="metric"><span>空闲</span><strong id="idleValue">--</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="layout">
+      <article class="panel">
+        <h2>Reminder Settings</h2>
+        <p class="hint">修改后会立即保存到 `config.json`，并重置当前累计状态。适合快速调试提醒节奏。</p>
+        <form id="configForm">
+          <div class="field-grid">
+            <label>提醒分钟数
+              <input id="remindAfterMinutes" type="number" min="1" required />
+            </label>
+            <label>空闲重置分钟数
+              <input id="idleResetMinutes" type="number" min="1" required />
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>检测间隔秒数
+              <input id="checkIntervalSeconds" type="number" min="1" required />
+            </label>
+            <label>通知标题
+              <input id="notificationTitle" type="text" required />
+            </label>
+          </div>
+          <label>通知内容
+            <textarea id="notificationMessage" required></textarea>
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit">保存设置</button>
+            <button class="secondary" type="button" id="testButton">测试通知</button>
+          </div>
+        </form>
+        <div id="message" class="message"></div>
+      </article>
+
+      <article class="panel">
+        <h2>Live Overview</h2>
+        <div class="log">
+          <div class="log-card">
+            <strong>当前状态</strong>
+            <div id="statusText">--</div>
+          </div>
+          <div class="log-card">
+            <strong>通知标题</strong>
+            <div id="titleText">--</div>
+          </div>
+          <div class="log-card">
+            <strong>通知内容</strong>
+            <div id="messageText">--</div>
+          </div>
+          <div class="log-card">
+            <strong>最后刷新</strong>
+            <div id="updatedAtText">--</div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const form = document.getElementById('configForm');
+    const messageEl = document.getElementById('message');
+    const testButton = document.getElementById('testButton');
+
+    const fields = {
+      remind_after_minutes: document.getElementById('remindAfterMinutes'),
+      idle_reset_minutes: document.getElementById('idleResetMinutes'),
+      check_interval_seconds: document.getElementById('checkIntervalSeconds'),
+      notification_title: document.getElementById('notificationTitle'),
+      notification_message: document.getElementById('notificationMessage'),
+    };
+
+    function formatDuration(totalSeconds) {
+      const safe = Math.max(0, Number(totalSeconds || 0));
+      const hours = Math.floor(safe / 3600);
+      const minutes = Math.floor((safe % 3600) / 60);
+      const seconds = safe % 60;
+      if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function prettyStatus(status) {
+      const map = {
+        active: 'Active',
+        paused: 'Paused',
+        idle: 'Idle',
+        idle_reset: 'Idle Reset',
+        reminder_triggered: 'Reminder Triggered',
+      };
+      return map[status] || status || 'Unknown';
+    }
+
+    function render(data) {
+      document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
+      document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
+      document.getElementById('idleValue').textContent = formatDuration(data.idle_seconds);
+      document.getElementById('statusText').textContent = prettyStatus(data.status);
+      document.getElementById('titleText').textContent = data.notification_title;
+      document.getElementById('messageText').textContent = data.notification_message;
+      document.getElementById('updatedAtText').textContent = new Date(data.updated_at).toLocaleString();
+
+      const chip = document.getElementById('statusChip');
+      chip.textContent = prettyStatus(data.status);
+      chip.className = `status-chip ${data.status || ''}`;
+
+      fields.remind_after_minutes.value = data.remind_after_minutes;
+      fields.idle_reset_minutes.value = data.idle_reset_minutes;
+      fields.check_interval_seconds.value = data.check_interval_seconds;
+      fields.notification_title.value = data.notification_title;
+      fields.notification_message.value = data.notification_message;
+    }
+
+    async function refresh() {
+      const response = await fetch('/api/status');
+      if (!response.ok) throw new Error('Failed to load status');
+      const data = await response.json();
+      render(data);
+    }
+
+    function setMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`.trim();
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      setMessage('Saving...');
+
+      const payload = {
+        remind_after_minutes: Number(fields.remind_after_minutes.value),
+        idle_reset_minutes: Number(fields.idle_reset_minutes.value),
+        check_interval_seconds: Number(fields.check_interval_seconds.value),
+        notification_title: fields.notification_title.value.trim(),
+        notification_message: fields.notification_message.value.trim(),
+      };
+
+      const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || 'Save failed', 'error');
+        return;
+      }
+
+      setMessage('Saved. The timer has been reset with the new settings.', 'ok');
+      await refresh();
+    });
+
+    testButton.addEventListener('click', async () => {
+      setMessage('Sending test notification...');
+      const response = await fetch('/api/test-notification', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || 'Test failed', 'error');
+        return;
+      }
+      setMessage('Notification sent.', 'ok');
+    });
+
+    refresh().catch((error) => setMessage(error.message, 'error'));
+    setInterval(() => refresh().catch(() => {}), 2000);
+  </script>
+</body>
+</html>
