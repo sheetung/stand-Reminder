@@ -2,6 +2,7 @@ package app
 
 import (
 	"log"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"stand-reminder/internal/config"
 	"stand-reminder/internal/notify"
 	"stand-reminder/internal/reminder"
+	"stand-reminder/internal/stats"
 )
 
 const (
@@ -40,6 +42,7 @@ type App struct {
 	cfg        config.Config
 	detector   activity.Detector
 	notifier   *notify.WindowsNotifier
+	store      *stats.Store
 	engine     *reminder.Engine
 	state      Snapshot
 	paused     bool
@@ -53,11 +56,17 @@ func New(configPath string) (*App, error) {
 	}
 
 	n := notify.NewWindowsNotifier()
+	store, err := stats.Open(filepath.Join(filepath.Dir(configPath), "stats.json"))
+	if err != nil {
+		return nil, err
+	}
+
 	app := &App{
 		configPath: configPath,
 		cfg:        cfg,
 		detector:   activity.NewDetector(),
 		notifier:   &n,
+		store:      store,
 	}
 	app.rebuildLocked(cfg)
 	app.resetStateLocked(string(reminder.StateIdle))
@@ -68,6 +77,10 @@ func (a *App) SetControlCenterURL(url string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.notifier.SetOpenURL(url)
+}
+
+func (a *App) Stats(rangeKey string) (stats.Summary, error) {
+	return a.store.Summary(rangeKey, time.Now())
 }
 
 func (a *App) Run() {
@@ -91,6 +104,9 @@ func (a *App) Run() {
 				a.state.MediaPlaying = false
 				a.state.UpdatedAt = now.Format(time.RFC3339)
 				a.mu.Unlock()
+				if err := a.store.AddDuration(now, stats.CategoryBreak, interval); err != nil {
+					log.Printf("failed to update break stats: %v", err)
+				}
 				time.Sleep(interval)
 				continue
 			}
@@ -114,6 +130,9 @@ func (a *App) Run() {
 			a.state.MediaPlaying = false
 			a.state.UpdatedAt = now.Format(time.RFC3339)
 			a.mu.Unlock()
+			if err := a.store.AddDuration(now, stats.CategoryPaused, interval); err != nil {
+				log.Printf("failed to update paused stats: %v", err)
+			}
 			time.Sleep(interval)
 			continue
 		}
@@ -154,13 +173,30 @@ func (a *App) Run() {
 		a.mu.Unlock()
 
 		switch result.State {
+		case reminder.StateActive:
+			if err := a.store.AddDuration(now, stats.CategoryWork, interval); err != nil {
+				log.Printf("failed to update active stats: %v", err)
+			}
+		case reminder.StatePaused, reminder.StateIdle, reminder.StateIdleReset:
+			if err := a.store.AddDuration(now, stats.CategoryIdle, interval); err != nil {
+				log.Printf("failed to update idle stats: %v", err)
+			}
+		}
+
+		switch result.State {
 		case reminder.StateReminderTriggered:
 			log.Printf("reminder triggered: active_duration=%s", result.PreviousAccumulated.Round(time.Second))
+			if err := a.store.AddReminder(now); err != nil {
+				log.Printf("failed to update reminder stats: %v", err)
+			}
 			if err := a.notifier.Notify(cfg.NotificationTitle, cfg.NotificationMessage); err != nil {
 				log.Printf("failed to send notification: %v", err)
 			}
 		case reminder.StateIdleReset:
 			log.Printf("idle reset: idle=%s previous_accumulated=%s", effectiveIdle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
+			if err := a.store.AddIdleReset(now); err != nil {
+				log.Printf("failed to update idle reset stats: %v", err)
+			}
 		}
 
 		time.Sleep(interval)
@@ -233,8 +269,9 @@ func (a *App) Resume() Snapshot {
 func (a *App) StartBreak() Snapshot {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	now := time.Now()
 	a.paused = false
-	a.breakUntil = time.Now().Add(breakDuration)
+	a.breakUntil = now.Add(breakDuration)
 	a.rebuildLocked(a.cfg)
 	a.state.Status = statusBreakMode
 	a.state.Paused = false
@@ -244,7 +281,10 @@ func (a *App) StartBreak() Snapshot {
 	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
-	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
+	a.state.UpdatedAt = now.Format(time.RFC3339)
+	if err := a.store.AddBreakEvent(now); err != nil {
+		log.Printf("failed to update break stats: %v", err)
+	}
 	return a.state
 }
 

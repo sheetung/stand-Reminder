@@ -5,320 +5,557 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Stand Reminder Control Center</title>
   <style>
-    :root {
-      --ink: #1d1d1f;
-      --muted: #6e6e73;
-      --line: rgba(17, 24, 39, 0.1);
-      --surface: rgba(255, 255, 255, 0.86);
-      --accent: #1976d2;
-      --accent-strong: #0f5baa;
-      --good: #13795b;
-      --warn: #c76b00;
-      --danger: #b42318;
-      --soft: rgba(17, 24, 39, 0.06);
-      --bg1: #f4f7fb;
-      --bg2: #edf7f3;
-      --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
-      --radius: 24px;
-    }
+  :root {
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --line: rgba(17, 24, 39, 0.1);
+    --surface: rgba(255, 255, 255, 0.88);
+    --accent: #1976d2;
+    --accent-strong: #0f5baa;
+    --good: #13795b;
+    --warn: #c76b00;
+    --danger: #b42318;
+    --soft: rgba(17, 24, 39, 0.06);
+    --bg1: #f4f7fb;
+    --bg2: #edf7f3;
+    --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
+    --radius: 24px;
+  }
 
-    * { box-sizing: border-box; }
+  * { box-sizing: border-box; }
 
-    body {
-      margin: 0;
-      font-family: "Segoe UI", "PingFang SC", sans-serif;
-      color: var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(25, 118, 210, 0.16), transparent 28%),
-        radial-gradient(circle at bottom right, rgba(19, 121, 91, 0.18), transparent 30%),
-        linear-gradient(135deg, var(--bg1), var(--bg2));
-      min-height: 100vh;
-    }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "PingFang SC", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(25, 118, 210, 0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(19, 121, 91, 0.18), transparent 30%),
+      linear-gradient(135deg, var(--bg1), var(--bg2));
+    min-height: 100vh;
+  }
 
-    .shell {
-      width: min(1120px, calc(100% - 32px));
-      margin: 28px auto;
-      padding: 28px;
-      border-radius: 32px;
-      background: rgba(255, 255, 255, 0.66);
-      backdrop-filter: blur(24px);
-      box-shadow: var(--shadow);
-      border: 1px solid rgba(255, 255, 255, 0.55);
-    }
+  .shell {
+    width: min(1160px, calc(100% - 32px));
+    margin: 28px auto;
+    padding: 28px;
+    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+  }
 
-    .stack { display: grid; gap: 24px; }
+  .stack {
+    display: grid;
+    gap: 24px;
+  }
 
-    .hero,
-    .status-panel,
-    .panel {
-      height: 100%;
-      background: var(--surface);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      padding: 24px;
-      box-shadow: 0 8px 30px rgba(16, 24, 40, 0.06);
-    }
+  .hero,
+  .status-panel,
+  .panel,
+  .stats-panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(16, 24, 40, 0.06);
+    min-width: 0;
+  }
 
-    .toolbar {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
+  .top-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+    gap: 24px;
+    align-items: start;
+  }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(25, 118, 210, 0.08);
-      color: var(--accent-strong);
-      font-size: 13px;
-      font-weight: 600;
-    }
+  .toolbar,
+  .stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
 
-    .lang-switch {
-      display: flex;
-      gap: 8px;
-      background: rgba(17, 24, 39, 0.05);
-      padding: 6px;
-      border-radius: 999px;
-    }
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.08);
+    color: var(--accent-strong);
+    font-size: 13px;
+    font-weight: 600;
+  }
 
-    .lang-switch button {
-      padding: 8px 14px;
-      border-radius: 999px;
-      background: transparent;
-      color: var(--muted);
-      box-shadow: none;
-    }
+  .lang-switch,
+  .range-switch {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    background: rgba(17, 24, 39, 0.05);
+    border-radius: 999px;
+    flex-wrap: wrap;
+  }
 
-    .lang-switch button.active {
-      background: #fff;
-      color: var(--ink);
-      box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
-    }
+  .lang-switch button,
+  .range-switch button {
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    box-shadow: none;
+  }
 
-    h1 {
-      margin: 16px 0 12px;
-      font-size: clamp(28px, 4vw, 42px);
-      line-height: 1.08;
-    }
+  .lang-switch button.active,
+  .range-switch button.active {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
+  }
 
-    .sub {
-      margin: 0;
-      color: var(--muted);
-      font-size: 16px;
-      line-height: 1.6;
-    }
+  h1 {
+    margin: 16px 0 12px;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.08;
+  }
 
-    .quick-actions,
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
+  h2 {
+    margin: 0;
+    font-size: 22px;
+  }
 
-    .quick-actions { margin-top: 22px; }
+  .sub,
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.65;
+  }
 
-    button {
-      border: 0;
-      border-radius: 999px;
-      padding: 13px 18px;
-      font: inherit;
-      font-weight: 700;
-      cursor: pointer;
-      transition: transform 0.16s ease;
-    }
+  .hint {
+    font-size: 14px;
+    margin-top: 10px;
+  }
 
-    button:hover { transform: translateY(-1px); }
-    button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  .quick-actions,
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 
-    .primary,
-    .quick-primary {
-      background: linear-gradient(135deg, var(--accent), #46a0ff);
-      color: #fff;
-      box-shadow: 0 12px 24px rgba(25, 118, 210, 0.22);
-    }
+  .quick-actions { margin-top: 22px; }
 
-    .secondary,
-    .quick-secondary {
-      background: var(--soft);
-      color: var(--ink);
-    }
+  button {
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.16s ease;
+  }
 
-    .quick-danger {
-      background: rgba(199, 107, 0, 0.12);
-      color: var(--warn);
-    }
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
+  .primary,
+  .quick-primary {
+    background: linear-gradient(135deg, var(--accent), #46a0ff);
+    color: #fff;
+    box-shadow: 0 12px 24px rgba(25, 118, 210, 0.22);
+  }
+
+  .secondary,
+  .quick-secondary {
+    background: var(--soft);
+    color: var(--ink);
+  }
+
+  .quick-danger {
+    background: rgba(199, 107, 0, 0.12);
+    color: var(--warn);
+  }
+
+  .quick-guide,
+  .field-grid,
+  .stats-summary,
+  .metrics {
+    display: grid;
+    gap: 14px;
+  }
+
+  .quick-guide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+    margin-top: 4px;
+  }
+
+  .guide-card,
+  .metric,
+  .summary-card {
+    border-radius: 18px;
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .guide-card strong,
+  .summary-card strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .guide-card span,
+  label,
+  .message,
+  .stats-empty {
+    color: var(--muted);
+  }
+
+  .status-panel {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-weight: 700;
+    background: rgba(19, 121, 91, 0.08);
+    color: var(--good);
+  }
+
+  .status-chip.paused,
+  .status-chip.manual_paused,
+  .status-chip.break_mode {
+    background: rgba(199, 107, 0, 0.12);
+    color: var(--warn);
+  }
+
+  .status-chip.idle,
+  .status-chip.idle_reset {
+    background: rgba(110, 110, 115, 0.12);
+    color: var(--muted);
+  }
+
+  .status-chip.reminder_triggered {
+    background: rgba(25, 118, 210, 0.12);
+    color: var(--accent-strong);
+  }
+
+  .metric span,
+  .summary-card span {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .metric strong,
+  .summary-card strong {
+    display: block;
+    font-size: clamp(18px, 2vw, 26px);
+    line-height: 1.15;
+    word-break: break-word;
+  }
+
+  form { display: grid; gap: 16px; }
+  label { display: grid; gap: 8px; font-size: 14px; }
+
+  input,
+  textarea {
+    width: 100%;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    border-radius: 16px;
+    padding: 14px 16px;
+    font: inherit;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  textarea { min-height: 112px; resize: vertical; }
+  .message { margin-top: 14px; min-height: 22px; font-size: 14px; }
+  .message.ok { color: var(--good); }
+  .message.error { color: var(--danger); }
+  .message.warn { color: var(--warn); }
+
+  .break-card { margin-top: 16px; display: none; }
+  .break-card.active { display: block; }
+  .break-timer { font-size: 32px; font-weight: 800; margin-top: 8px; }
+
+  .stats-panel {
+    overflow: hidden;
+  }
+
+  .stats-hover-info {
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(17, 24, 39, 0.04);
+    color: var(--muted);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+  }
+
+  .stats-chart {
+    margin-top: 16px;
+  }
+
+  .stats-chart.today {
+    display: grid;
+    gap: 14px;
+  }
+  .today-wave-wrap {
+    position: relative;
+    min-height: 304px;
+  }
+  .today-wave-canvas {
+    display: block;
+    width: 100%;
+    height: 264px;
+  }
+  .today-floating-tooltip {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: none;
+    min-width: 156px;
+    max-width: 220px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(147, 69, 255, 0.22);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 24px rgba(20, 20, 43, 0.12);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .today-floating-tooltip.visible {
+    display: block;
+  }
+  .today-floating-tooltip-title {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .today-floating-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .today-floating-tooltip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+  .today-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 0 2px;
+  }
+  .today-meta strong {
+    display: block;
+    font-size: 15px;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+
+  .stats-chart.range {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(26px, 1fr));
+    align-items: end;
+    gap: 12px;
+    min-height: 208px;
+  }
+
+  .chart-bar {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    min-width: 0;
+  }
+  .chart-column {
+    width: 100%;
+    max-width: 24px;
+    height: 168px;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(17, 24, 39, 0.05);
+    transform-origin: center bottom;
+    transition: transform 0.16s ease;
+  }
+
+  .chart-segment {
+    width: 100%;
+    border-radius: 0;
+  }
+
+  .chart-column .chart-segment:first-child {
+    border-bottom-left-radius: 999px;
+    border-bottom-right-radius: 999px;
+  }
+
+  .chart-column .chart-segment:last-child {
+    border-top-left-radius: 999px;
+    border-top-right-radius: 999px;
+  }
+
+  .chart-bar:hover .chart-column { transform: scaleX(1.06); }
+  .chart-segment.work { background: linear-gradient(180deg, #a855f7, #7c3aed); }
+  .chart-segment.break { background: linear-gradient(180deg, #fb7185, #f43f5e); }
+  .chart-segment.idle { background: linear-gradient(180deg, #cbd5e1, #94a3b8); }
+  .chart-segment.paused { background: linear-gradient(180deg, #fde68a, #f59e0b); }
+
+  .chart-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.2;
+    min-height: 24px;
+  }
+
+  .stats-empty {
+    grid-column: 1 / -1;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px dashed rgba(17, 24, 39, 0.12);
+    text-align: center;
+  }
+
+  @media (max-width: 980px) {
+    .top-row,
+    .field-grid,
     .quick-guide,
-    .metrics,
-    .field-grid {
-      display: grid;
-      gap: 14px;
-    }
-
-    .quick-guide {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-top: 18px;
-    }
-
-    .metrics {
+    .stats-summary {
       grid-template-columns: 1fr;
-      margin-top: 18px;
+    }
+  }
+
+  @media (max-width: 860px) {
+    .shell {
+      width: min(100% - 20px, 1160px);
+      padding: 18px;
+      margin: 14px auto;
     }
 
-    .field-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .toolbar,
+    .stats-header {
+      flex-direction: column;
+      align-items: flex-start;
     }
 
-    .top-row {
-      display: grid;
-      grid-template-columns: 1.2fr 0.8fr;
-      gap: 24px;
-      align-items: stretch;
+    .today-wave-canvas {
+      height: 220px;
     }
 
-    .guide-card,
-    .metric {
-      border-radius: 18px;
-      padding: 16px 18px;
-      background: rgba(255, 255, 255, 0.78);
-      border: 1px solid rgba(17, 24, 39, 0.08);
+    .today-meta {
+      font-size: 12px;
     }
 
-    .guide-card strong { display: block; margin-bottom: 6px; }
-    .guide-card span,
-    .hint,
-    label,
-    .message { color: var(--muted); }
-
-    .status-chip {
-      display: inline-flex;
-      align-items: center;
-      padding: 12px 14px;
-      border-radius: 16px;
-      font-weight: 600;
-      background: rgba(19, 121, 91, 0.08);
-      color: var(--good);
-      margin-bottom: 14px;
-    }
-
-    .status-chip.paused,
-    .status-chip.manual_paused,
-    .status-chip.break_mode {
-      background: rgba(199, 107, 0, 0.12);
-      color: var(--warn);
-    }
-
-    .status-chip.idle,
-    .status-chip.idle_reset {
-      background: rgba(110, 110, 115, 0.12);
-      color: var(--muted);
-    }
-
-    .status-chip.reminder_triggered {
-      background: rgba(25, 118, 210, 0.12);
-      color: var(--accent-strong);
-    }
-
-    .metric span {
-      display: block;
-      color: var(--muted);
-      font-size: 13px;
-      margin-bottom: 10px;
-    }
-
-    .metric strong {
-      display: block;
-      font-size: clamp(20px, 2.8vw, 30px);
-      line-height: 1.15;
-    }
-
-    .panel h2 { margin: 0 0 16px; font-size: 22px; }
-    .hint { font-size: 14px; margin: 0 0 18px; line-height: 1.5; }
-    form { display: grid; gap: 16px; }
-    label { display: grid; gap: 8px; font-size: 14px; }
-
-    input,
-    textarea {
-      width: 100%;
-      border: 1px solid rgba(17, 24, 39, 0.12);
-      border-radius: 16px;
-      padding: 14px 16px;
-      font: inherit;
-      color: var(--ink);
-      background: rgba(255, 255, 255, 0.9);
-    }
-
-    textarea { min-height: 112px; resize: vertical; }
-    .message { margin-top: 14px; min-height: 22px; font-size: 14px; }
-    .message.ok { color: var(--good); }
-    .message.error { color: var(--danger); }
-    .message.warn { color: var(--warn); }
-
-    .break-card { margin-top: 16px; display: none; }
-    .break-card.active { display: block; }
-    .break-timer { font-size: 32px; font-weight: 800; margin-top: 8px; }
-
-    @media (max-width: 860px) {
-      .top-row,
-      .field-grid,
-      .quick-guide { grid-template-columns: 1fr; }
-      .shell { width: min(100% - 20px, 1120px); padding: 18px; margin: 14px auto; }
-      .toolbar { flex-direction: column; align-items: flex-start; }
-    }
-  </style>
+  }
+</style>
 </head>
 <body>
   <main class="shell">
     <section class="stack">
       <section class="top-row">
         <article class="hero">
-        <div class="toolbar">
-          <div class="eyebrow" data-i18n="eyebrow">Stand Reminder Console</div>
-          <div class="lang-switch">
-            <button id="langZh" class="active" type="button">中文</button>
-            <button id="langEn" type="button">EN</button>
+          <div class="toolbar">
+            <div class="eyebrow" data-i18n="eyebrow">Stand Reminder Console</div>
+            <div class="lang-switch">
+              <button id="langZh" class="active" type="button">中文</button>
+              <button id="langEn" type="button">EN</button>
+            </div>
           </div>
-        </div>
-        <h1 data-i18n="heroTitle">快速控制区</h1>
-        <p class="sub" data-i18n="heroSub">这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。</p>
-        <div class="quick-actions">
-          <button class="quick-primary" type="button" id="heroTestButton" data-i18n="btnTest">测试通知</button>
-          <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause">暂停</button>
-          <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume">开始 / 恢复</button>
-          <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak">我已起身活动</button>
-          <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh">刷新</button>
-        </div>
-        <div id="breakCard" class="guide-card break-card">
-          <strong data-i18n="breakTitle">活动休息</strong>
-          <span data-i18n="breakSub">休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。</span>
-          <div id="breakTimer" class="break-timer">10:00</div>
-        </div>
-        <div class="quick-guide">
-          <div class="guide-card">
-            <strong data-i18n="guidePauseTitle">暂停</strong>
-            <span data-i18n="guidePauseBody">临时停止累计并且不再提醒，适合开会或暂时不想被打扰。</span>
+          <h1 data-i18n="heroTitle">快速控制区</h1>
+          <p class="sub" data-i18n="heroSub">这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。</p>
+          <div class="quick-actions">
+            <button class="quick-primary" type="button" id="heroTestButton" data-i18n="btnTest">测试通知</button>
+            <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause">暂停</button>
+            <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume">开始 / 恢复</button>
+            <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak">我已起身活动</button>
+            <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh">刷新</button>
           </div>
-          <div class="guide-card">
-            <strong data-i18n="guideBreakTitle">我已起身活动</strong>
-            <span data-i18n="guideBreakBody">立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。</span>
+          <div id="breakCard" class="guide-card break-card">
+            <strong data-i18n="breakTitle">活动休息</strong>
+            <span data-i18n="breakSub">休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。</span>
+            <div id="breakTimer" class="break-timer">10:00</div>
           </div>
-        </div>
-      </article>
+          <div class="quick-guide">
+            <div class="guide-card">
+              <strong data-i18n="guidePauseTitle">暂停</strong>
+              <span data-i18n="guidePauseBody">临时停止累计并且不再提醒，适合开会或暂时不想被打扰。</span>
+            </div>
+            <div class="guide-card">
+              <strong data-i18n="guideBreakTitle">我已起身活动</strong>
+              <span data-i18n="guideBreakBody">立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。</span>
+            </div>
+          </div>
+        </article>
 
         <article class="status-panel">
-        <div id="statusChip" class="status-chip">加载中</div>
-        <div class="metrics">
-          <div class="metric"><span data-i18n="metricAccumulated">已累计</span><strong id="accumulatedValue">--</strong></div>
-          <div class="metric"><span data-i18n="metricRemaining">剩余</span><strong id="remainingValue">--</strong></div>
-          <div class="metric"><span data-i18n="metricIdle">空闲</span><strong id="idleValue">--</strong></div>
-          <div class="metric"><span data-i18n="metricMedia">媒体播放</span><strong id="mediaValue">--</strong></div>
-        </div>
-      </article>
+          <div id="statusChip" class="status-chip">加载中</div>
+          <div class="metrics">
+            <div class="metric"><span data-i18n="metricAccumulated">已累计</span><strong id="accumulatedValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricRemaining">剩余</span><strong id="remainingValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricIdle">空闲</span><strong id="idleValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricMedia">媒体播放</span><strong id="mediaValue">--</strong></div>
+          </div>
+        </article>
       </section>
+
+      <article class="stats-panel">
+        <div class="stats-header">
+          <div>
+            <h2 data-i18n="statsTitle">数据统计</h2>
+            <p class="hint" data-i18n="statsHint">按时间周期查看久坐累计、提醒次数和活动休息次数。</p>
+          </div>
+          <div class="range-switch">
+            <button id="rangeToday" class="active" type="button" data-range="today" data-i18n="rangeToday">今天</button>
+            <button id="range7d" type="button" data-range="7d" data-i18n="range7d">7天</button>
+            <button id="range20d" type="button" data-range="20d" data-i18n="range20d">20天</button>
+          </div>
+        </div>
+        <div class="stats-summary">
+          <div class="summary-card"><span data-i18n="statsTotalActive">累计时长</span><strong id="statsActiveValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalReminders">提醒次数</span><strong id="statsReminderValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalBreaks">活动休息</span><strong id="statsBreakValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalIdleResets">空闲重置</span><strong id="statsIdleResetValue">--</strong></div>
+        </div>
+        <div id="statsHoverInfo" class="stats-hover-info"></div>
+        <div id="statsDays" class="stats-chart"></div>
+      </article>
 
       <article class="panel">
         <h2 data-i18n="settingsTitle">提醒设置</h2>
@@ -380,6 +617,23 @@
         metricRemaining: '剩余',
         metricIdle: '空闲',
         metricMedia: '媒体播放',
+        mediaPlaying: '播放中',
+        mediaStopped: '未播放',
+        statsTitle: '数据统计',
+        statsHint: '按时间周期查看久坐累计、提醒次数和活动休息次数。',
+        rangeToday: '今天',
+        range7d: '7天',
+        range20d: '20天',
+        statsTotalActive: '累计时长',
+        statsTotalReminders: '提醒次数',
+        statsTotalBreaks: '活动休息',
+        statsTotalIdleResets: '空闲重置',
+        statsNoData: '当前周期还没有统计数据。',
+        statsHoverDefault: '鼠标停在图表上，可查看这一段的工作、休息、空闲和暂停时间。',
+        statsWork: '工作',
+        statsBreak: '休息',
+        statsIdle: '空闲',
+        statsPaused: '暂停',
         settingsTitle: '提醒设置',
         settingsHint: '保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。',
         labelRemindAfter: '提醒分钟数',
@@ -408,6 +662,7 @@
         msgBreakStarted: '已进入 10 分钟活动休息。',
         msgRefreshed: '状态已刷新。',
         msgEditing: '你有未保存的修改，状态会继续刷新，但表单不会被覆盖。',
+        msgStatsFailed: '统计加载失败。',
         breakDone: '休息已结束，请手动点击“开始 / 恢复”继续计时。'
       },
       en: {
@@ -430,6 +685,23 @@
         metricRemaining: 'Remaining',
         metricIdle: 'Idle',
         metricMedia: 'Media Playback',
+        mediaPlaying: 'Playing',
+        mediaStopped: 'Not Playing',
+        statsTitle: 'Statistics',
+        statsHint: 'Review sitting time, reminders, and breaks by selected date range.',
+        rangeToday: 'Today',
+        range7d: '7 Days',
+        range20d: '20 Days',
+        statsTotalActive: 'Active Time',
+        statsTotalReminders: 'Reminders',
+        statsTotalBreaks: 'Breaks',
+        statsTotalIdleResets: 'Idle Resets',
+        statsNoData: 'No statistics yet for this range.',
+        statsHoverDefault: 'Hover a chart region to see work, break, idle, and pause time for that period.',
+        statsWork: 'Work',
+        statsBreak: 'Break',
+        statsIdle: 'Idle',
+        statsPaused: 'Paused',
         settingsTitle: 'Reminder Settings',
         settingsHint: 'Saving writes to config.json immediately and resets the timer using the new schedule. Auto refresh will not overwrite the form while you are editing.',
         labelRemindAfter: 'Remind After Minutes',
@@ -458,6 +730,7 @@
         msgBreakStarted: 'Break started. 10-minute activity timer is running.',
         msgRefreshed: 'Status refreshed.',
         msgEditing: 'You have unsaved changes. Live status still refreshes, but the form will not be overwritten.',
+        msgStatsFailed: 'Failed to load statistics.',
         breakDone: 'Break finished. Click Start / Resume when you want to continue counting.'
       }
     };
@@ -466,6 +739,7 @@
     let breakEndsAt = null;
     let breakDoneNotified = false;
     let formDirty = false;
+    let currentRange = 'today';
 
     const form = document.getElementById('configForm');
     const messageEl = document.getElementById('message');
@@ -479,10 +753,13 @@
     const langEn = document.getElementById('langEn');
     const breakCard = document.getElementById('breakCard');
     const breakTimer = document.getElementById('breakTimer');
+    const statsDays = document.getElementById('statsDays');
+    const statsHoverInfo = document.getElementById('statsHoverInfo');
+    const rangeButtons = Array.from(document.querySelectorAll('[data-range]'));
 
     const fields = {
       remind_after_minutes: document.getElementById('remindAfterMinutes'),
-      idle_reset_minutes: document.getElementById('idleResetMinutes'),
+      idle_reset_minutes: document.getElementById('IdleResetMinutes') || document.getElementById('idleResetMinutes'),
       check_interval_seconds: document.getElementById('checkIntervalSeconds'),
       notification_title: document.getElementById('notificationTitle'),
       notification_message: document.getElementById('notificationMessage'),
@@ -499,6 +776,9 @@
       });
       langZh.classList.toggle('active', currentLang === 'zh');
       langEn.classList.toggle('active', currentLang === 'en');
+      rangeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.range === currentRange);
+      });
     }
 
     function formatDuration(totalSeconds) {
@@ -561,13 +841,11 @@
       }
     }
 
-    function render(data) {
+    function renderStatus(data) {
       document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
       document.getElementById('idleValue').textContent = formatDuration(data.idle_seconds);
-      document.getElementById('mediaValue').textContent = data.media_playing
-        ? (currentLang === 'zh' ? '播放中' : 'Playing')
-        : (currentLang === 'zh' ? '未播放' : 'Not Playing');
+      document.getElementById('mediaValue').textContent = data.media_playing ? t('mediaPlaying') : t('mediaStopped');
 
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);
@@ -588,11 +866,354 @@
       updateBreakTimer();
     }
 
+    function setStatsHover(bar) {
+      if (!bar) {
+        statsHoverInfo.textContent = t('statsHoverDefault');
+        return;
+      }
+
+      statsHoverInfo.textContent = `${bar.label} · ${t('statsWork')}: ${formatDuration(bar.work_seconds || 0)} · ${t('statsBreak')}: ${formatDuration(bar.break_seconds || 0)} · ${t('statsIdle')}: ${formatDuration(bar.idle_seconds || 0)} · ${t('statsPaused')}: ${formatDuration(bar.paused_seconds || 0)}`;
+    }
+
+    function formatSlotTime(slotIndex) {
+      const totalMinutes = Math.max(0, slotIndex) * 5;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const minutes = String(totalMinutes % 60).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
+    function buildTodaySegments(bars) {
+      const stateOrder = ['paused', 'break', 'work', 'idle'];
+      const stateLabelMap = {
+        paused: t('statsPaused'),
+        break: t('statsBreak'),
+        work: t('statsWork'),
+        idle: t('statsIdle'),
+      };
+
+      const segments = [];
+      let current = null;
+
+      bars.forEach((bar, index) => {
+        const dominant = bar.dominant || '';
+        const total = Number(bar.total_seconds || 0);
+        if (!dominant || total <= 0) {
+          current = null;
+          return;
+        }
+
+        if (!current || current.state !== dominant || current.end !== index - 1) {
+          current = {
+            start: index,
+            end: index,
+            state: dominant,
+            level: Math.max(0, stateOrder.indexOf(dominant)),
+            label: stateLabelMap[dominant] || dominant,
+            work_seconds: Number(bar.work_seconds || 0),
+            break_seconds: Number(bar.break_seconds || 0),
+            idle_seconds: Number(bar.idle_seconds || 0),
+            paused_seconds: Number(bar.paused_seconds || 0),
+          };
+          segments.push(current);
+          return;
+        }
+
+        current.end = index;
+        current.work_seconds += Number(bar.work_seconds || 0);
+        current.break_seconds += Number(bar.break_seconds || 0);
+        current.idle_seconds += Number(bar.idle_seconds || 0);
+        current.paused_seconds += Number(bar.paused_seconds || 0);
+      });
+
+      return segments;
+    }
+
+    function roundedRectPath(ctx, startX, startY, endX, endY, radius) {
+      const width = endX - startX;
+      const actualRadius = Math.max(0, Math.min(radius, width / 2, (endY - startY) / 2));
+      const hasStraight = width > actualRadius * 2;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY + actualRadius);
+      ctx.lineTo(startX, endY - actualRadius);
+      ctx.quadraticCurveTo(startX, endY, startX + actualRadius, endY);
+      if (hasStraight) {
+        ctx.lineTo(endX - actualRadius, endY);
+      }
+      ctx.quadraticCurveTo(endX, endY, endX, endY - actualRadius);
+      ctx.lineTo(endX, startY + actualRadius);
+      ctx.quadraticCurveTo(endX, startY, endX - actualRadius, startY);
+      if (hasStraight) {
+        ctx.lineTo(startX + actualRadius, startY);
+      }
+      ctx.quadraticCurveTo(startX, startY, startX, startY + actualRadius);
+      return actualRadius;
+    }
+
+    function showTodayTooltip(tooltip, segment, event, bounds, color) {
+      tooltip.innerHTML = `
+        <div class="today-floating-tooltip-title">${segment.label}</div>
+        <div class="today-floating-tooltip-row"><span class="today-floating-tooltip-dot" style="background:${color}"></span><span>${formatSlotTime(segment.start)} - ${formatSlotTime(segment.end + 1)}</span></div>
+      `;
+      tooltip.classList.add('visible');
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const relativeX = event.clientX - bounds.left;
+      const relativeY = event.clientY - bounds.top;
+      const left = Math.min(Math.max(12, relativeX + 12), Math.max(12, bounds.width - tooltipRect.width - 12));
+      const top = Math.min(Math.max(10, relativeY - tooltipRect.height - 12), Math.max(10, bounds.height - tooltipRect.height - 10));
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }
+
+    function renderTodayWaveChart(bars) {
+      const segments = buildTodaySegments(bars);
+      if (!segments.length) {
+        const empty = document.createElement('div');
+        empty.className = 'stats-empty';
+        empty.textContent = t('statsNoData');
+        statsDays.appendChild(empty);
+        return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'today-wave-wrap';
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'today-wave-canvas';
+      wrap.appendChild(canvas);
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'today-floating-tooltip';
+      wrap.appendChild(tooltip);
+      statsDays.appendChild(wrap);
+
+      const meta = document.createElement('div');
+      meta.className = 'today-meta';
+      const nonEmptyBars = bars.map((bar, index) => ({ index, total: Number(bar.total_seconds || 0) })).filter((bar) => bar.total > 0);
+      const startLabel = document.createElement('div');
+      const endLabel = document.createElement('div');
+      startLabel.innerHTML = `<div>${currentLang === 'zh' ? '开始' : 'Start'}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[0].index) : '00:00'}</strong>`;
+      endLabel.innerHTML = `<div>${currentLang === 'zh' ? '结束' : 'End'}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[nonEmptyBars.length - 1].index + 1) : '24:00'}</strong>`;
+      meta.appendChild(startLabel);
+      meta.appendChild(endLabel);
+      statsDays.appendChild(meta);
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(320, wrap.clientWidth);
+      const height = 264;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const axisXHeight = 24;
+      const plotTop = 16;
+      const plotHeight = height - plotTop - axisXHeight;
+      const yDis = plotHeight / 4;
+      const radius = Math.min(12, yDis / 4);
+      const xDis = width / bars.length;
+      const styleMap = {
+        paused: { color: '#F3C64E' },
+        break: { color: '#F67A98' },
+        work: { color: '#A56BFF' },
+        idle: { color: '#5D10D8' },
+      };
+      const hoverRegions = [];
+      const topForLevel = (level) => plotTop + level * yDis + radius;
+      const bottomForLevel = (level) => topForLevel(level) + yDis - 2 * radius;
+
+      segments.forEach((segment, index) => {
+        const startX = segment.start * xDis;
+        const endX = (segment.end + 1) * xDis;
+        const startY = topForLevel(segment.level);
+        const endY = bottomForLevel(segment.level);
+        const fill = (styleMap[segment.state] || styleMap.work).color;
+
+        ctx.save();
+        const currentRadius = roundedRectPath(ctx, startX, startY, endX, endY, radius);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = fill;
+        ctx.stroke();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.restore();
+
+        hoverRegions.push({
+          x: startX,
+          y: startY,
+          width: Math.max(1, endX - startX),
+          height: Math.max(1, endY - startY),
+          segment,
+          color: fill,
+        });
+
+        const nextSegment = segments[index + 1];
+        if (!nextSegment || nextSegment.level === segment.level || nextSegment.start !== segment.end + 1) {
+          return;
+        }
+
+        const nextStartX = nextSegment.start * xDis;
+        const nextEndX = (nextSegment.end + 1) * xDis;
+        const nextStartY = topForLevel(nextSegment.level);
+        const nextEndY = bottomForLevel(nextSegment.level);
+        const nextColor = (styleMap[nextSegment.state] || styleMap.work).color;
+        const nextRadius = Math.max(0, Math.min(radius, (nextEndX - nextStartX) / 2, (nextEndY - nextStartY) / 2));
+
+        const dir = segment.level > nextSegment.level;
+        const lineX = nextStartX;
+        const lineStartY = dir ? topForLevel(segment.level) : bottomForLevel(segment.level);
+        const lineEndY = dir ? nextEndY : nextStartY;
+        const gradient = ctx.createLinearGradient(lineX, lineStartY, lineX, lineEndY);
+        gradient.addColorStop(0, fill);
+        gradient.addColorStop(1, nextColor);
+
+        const lineRadius = Math.max(radius, 2);
+        const startOffset = dir ? -lineRadius : lineRadius;
+        const endOffset = dir ? lineRadius : -lineRadius;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = gradient;
+        ctx.moveTo(lineX, lineStartY + startOffset);
+        ctx.quadraticCurveTo(lineX, lineStartY, lineX - currentRadius, lineStartY);
+        ctx.quadraticCurveTo(lineX, lineStartY, lineX, lineStartY - startOffset);
+        ctx.lineTo(lineX, lineEndY - endOffset);
+        ctx.quadraticCurveTo(lineX, lineEndY, lineX + nextRadius, lineEndY);
+        ctx.quadraticCurveTo(lineX, lineEndY, lineX, lineEndY + endOffset);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const region = hoverRegions.find((item) => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height);
+        if (!region) {
+          tooltip.classList.remove('visible');
+          setStatsHover(null);
+          return;
+        }
+        setStatsHover({
+          label: `${formatSlotTime(region.segment.start)} - ${formatSlotTime(region.segment.end + 1)}`,
+          work_seconds: region.segment.work_seconds,
+          break_seconds: region.segment.break_seconds,
+          idle_seconds: region.segment.idle_seconds,
+          paused_seconds: region.segment.paused_seconds,
+        });
+        showTodayTooltip(tooltip, region.segment, event, rect, region.color);
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+        setStatsHover(null);
+      });
+    }
+
+    function renderStats(data) {
+      const totalWork = Number(data.total_work_seconds || 0);
+      const totalBreak = Number(data.total_break_seconds || 0);
+      const totalIdle = Number(data.total_idle_seconds || 0);
+      const totalPaused = Number(data.total_paused_seconds || 0);
+      const totalActive = totalWork + totalBreak;
+
+      document.getElementById('statsActiveValue').textContent = formatDuration(totalActive);
+      document.getElementById('statsReminderValue').textContent = String(data.total_reminders || 0);
+      document.getElementById('statsBreakValue').textContent = String(data.total_breaks || 0);
+      document.getElementById('statsIdleResetValue').textContent = String(data.total_idle_resets || 0);
+
+      rangeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.range === currentRange);
+      });
+
+      statsDays.innerHTML = '';
+      statsDays.className = currentRange === 'today' ? 'stats-chart today' : 'stats-chart range';
+      setStatsHover(null);
+
+      const bars = Array.isArray(data.bars) ? data.bars : [];
+      const maxTotal = bars.reduce((max, bar) => Math.max(max, Number(bar.total_seconds || 0)), 0);
+
+      if (bars.length === 0 || maxTotal === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'stats-empty';
+        empty.textContent = t('statsNoData');
+        statsDays.appendChild(empty);
+        return;
+      }
+
+      if (currentRange === 'today') {
+        renderTodayWaveChart(bars);
+        return;
+      }
+
+      const shouldShowLabel = (index, total) => {
+        if (currentRange === '20d') {
+          return index % 3 === 0 || index === total - 1;
+        }
+        return true;
+      };
+
+      bars.forEach((bar, index) => {
+        const workSeconds = Number(bar.work_seconds || 0);
+        const breakSeconds = Number(bar.break_seconds || 0);
+        const idleSeconds = Number(bar.idle_seconds || 0);
+        const pausedSeconds = Number(bar.paused_seconds || 0);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chart-bar';
+        wrapper.addEventListener('mouseenter', () => setStatsHover(bar));
+
+        const column = document.createElement('div');
+        column.className = 'chart-column';
+
+        const segmentsForBar = [
+          { name: 'work', value: workSeconds },
+          { name: 'break', value: breakSeconds },
+          { name: 'idle', value: idleSeconds },
+          { name: 'paused', value: pausedSeconds },
+        ];
+
+        segmentsForBar.forEach((segment) => {
+          if (segment.value <= 0) return;
+          const node = document.createElement('div');
+          node.className = `chart-segment ${segment.name}`;
+          node.style.height = `${Math.max(6, (segment.value / maxTotal) * 220)}px`;
+          column.appendChild(node);
+        });
+
+        const label = document.createElement('div');
+        label.className = 'chart-label';
+        label.textContent = shouldShowLabel(index, bars.length) ? bar.label : '';
+
+        wrapper.appendChild(column);
+        wrapper.appendChild(label);
+        statsDays.appendChild(wrapper);
+      });
+
+      statsDays.addEventListener('mouseleave', () => setStatsHover(null), { once: true });
+    }
+
     async function refresh() {
       const response = await fetch('/api/status');
       if (!response.ok) throw new Error('Failed to load status');
       const data = await response.json();
-      render(data);
+      renderStatus(data);
+    }
+
+    async function refreshStats() {
+      const response = await fetch(`/api/stats?range=${encodeURIComponent(currentRange)}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || t('msgStatsFailed'));
+      }
+      renderStats(data);
     }
 
     async function saveConfig() {
@@ -644,13 +1265,26 @@
         setMessage(data.error || t('msgActionFailed'), 'error');
         return;
       }
-      render(data);
+      renderStatus(data);
+      await refreshStats().catch(() => {});
       setMessage(successText, 'ok');
     }
 
     Object.values(fields).forEach((field) => {
       field.addEventListener('input', markDirty);
       field.addEventListener('change', markDirty);
+    });
+
+    rangeButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        currentRange = button.dataset.range;
+        applyLanguage();
+        try {
+          await refreshStats();
+        } catch (error) {
+          setMessage(error.message || t('msgStatsFailed'), 'error');
+        }
+      });
     });
 
     langZh.addEventListener('click', () => {
@@ -660,6 +1294,7 @@
         setMessage(t('msgEditing'), 'warn');
       }
       refresh().catch(() => {});
+      refreshStats().catch(() => {});
     });
 
     langEn.addEventListener('click', () => {
@@ -669,6 +1304,7 @@
         setMessage(t('msgEditing'), 'warn');
       }
       refresh().catch(() => {});
+      refreshStats().catch(() => {});
     });
 
     form.addEventListener('submit', async (event) => {
@@ -683,6 +1319,7 @@
     heroBreakButton.addEventListener('click', () => runAction('break', t('msgBreakStarted')));
     heroRefreshButton.addEventListener('click', async () => {
       await refresh();
+      await refreshStats().catch(() => {});
       if (!formDirty) {
         setMessage(t('msgRefreshed'), 'ok');
       }
@@ -690,11 +1327,40 @@
 
     applyLanguage();
     refresh().catch((error) => setMessage(error.message, 'error'));
+    refreshStats().catch((error) => setMessage(error.message || t('msgStatsFailed'), 'error'));
     setInterval(() => refresh().catch(() => {}), 2000);
     setInterval(updateBreakTimer, 1000);
+    setInterval(() => refreshStats().catch(() => {}), 60000);
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

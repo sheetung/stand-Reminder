@@ -3,3 +3,5 @@
 .gopath/
 stand-reminder.exe
 config.json
+stats.json
+
