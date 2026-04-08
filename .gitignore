@@ -5,3 +5,6 @@ stand-reminder.exe
 config.json
 stats.json
 
+stand-reminder.db
+stand-reminder.db-shm
+stand-reminder.db-wal

@@ -1,82 +1,46 @@
 ﻿# Stand Reminder
 
-一个使用 Go 编写的轻量级 Windows 久坐提醒工具。
+Stand Reminder 是一个使用 Go 编写的轻量级 Windows 久坐提醒工具。
 
-它会在后台常驻系统托盘，检测鼠标键盘活动，累计连续使用电脑的时间，并在达到提醒阈值后发送 Windows 系统通知。程序同时提供一个本地网页控制台，方便查看状态、修改配置和测试通知。
+它会常驻系统托盘，检测鼠标和键盘活动，在你连续使用电脑达到设定时长后发送系统通知；同时提供一个本地网页控制中心，用来查看当前状态、调整提醒参数、管理休息流程，以及查看统计图表。
 
-## 功能特性
+当前版本已经切换为 SQLite 本地存储，程序首次启动时会在可执行文件同目录下创建 `stand-reminder.db`，后续配置和统计数据都写入数据库。
+
+## UI 展示
+
+### 控制中心首页
+
+![控制中心首页](figs/1.png)
+
+### 统计视图
+
+![统计视图 1](figs/2-0.png)
+
+![统计视图 2](figs/2-1.png)
+
+![统计视图 3](figs/2-3.png)
+
+### 其他界面
+
+![其他界面](figs/3.png)
+
+## 功能说明
 
 - Windows 托盘常驻运行，启动后不弹黑色终端窗口
-- 检测鼠标键盘活动，按持续使用时间进行久坐提醒
-- 达到提醒时发送 Windows 系统通知
-- 支持本地网页控制台
+- 检测键盘与鼠标活动，按连续使用时长进行久坐提醒
+- 到达阈值后发送 Windows 系统通知，点击通知可打开控制中心
+- 提供本地网页控制中心，默认地址为 `http://127.0.0.1:47831`
 - 支持修改提醒分钟数、空闲重置分钟数、检测间隔、通知标题和通知内容
-- 支持手动暂停、恢复计时、测试通知
-- 支持“我已起身活动”模式，并在页面中显示 10 分钟活动倒计时
+- 支持手动 `暂停`、`开始 / 恢复`、`我已起身活动`
+- “我已起身活动”会停止当前计时，并在前端显示一个 10 分钟活动倒计时
 - 支持中英文界面切换，默认中文
+- 支持今天、7 天、20 天统计视图
+- 使用 SQLite 本地数据库保存配置和统计数据
 - GitHub Actions 可自动构建 Windows 版本，并在打标签时发布 Release
-
-## 工作方式
-
-程序会定期读取 Windows 最近一次键盘或鼠标输入时间，并按下面的规则运行：
-
-- 当用户持续活动时，累计久坐计时
-- 当空闲时间达到 `idle_reset_minutes` 后，当前累计时间会被重置
-- 当累计时间达到 `remind_after_minutes` 后，发送一次系统通知，并开始下一轮计时
-- 如果手动点击“暂停”，程序会停止累计和提醒
-- 如果点击“我已起身活动”，程序会停止计时，并进入 10 分钟活动休息状态
-- 活动休息结束后，不会自动恢复，需要手动点击“开始 / 恢复”
-
-## 控制中心
-
-程序启动后会在本机开启一个网页控制台：
-
-`http://127.0.0.1:47831`
-
-控制中心支持：
-
-- 查看当前状态
-- 查看已累计时间、剩余时间、空闲时间
-- 保存提醒设置
-- 测试通知
-- 暂停提醒
-- 开始 / 恢复计时
-- 进入活动休息模式
-- 中英文切换
-
-通常可以通过单击系统托盘图标打开控制中心。
-
-## 配置文件
-
-程序默认读取可执行文件同目录下的 `config.json`。
-
-仓库中提供的是 `config.example.json` 模板；你自己的 `config.json` 会被 Git 忽略，不会跟着代码一起提交。
-
-示例：
-
-```json
-{
-  "remind_after_minutes": 45,
-  "idle_reset_minutes": 5,
-  "check_interval_seconds": 5,
-  "notification_title": "Stand Reminder",
-  "notification_message": "You've been active for a while. Time to stand up and stretch."
-}
-```
-
-首次使用时，可以把 `config.example.json` 复制一份并命名为 `config.json`。
-
-字段说明：
-
-- `remind_after_minutes`：提醒间隔，单位分钟
-- `idle_reset_minutes`：空闲多久后重置当前计时，单位分钟
-- `check_interval_seconds`：检测输入状态的轮询间隔，单位秒
-- `notification_title`：通知标题
-- `notification_message`：通知内容
 
 ## 本地运行
 
-1. 安装 Go 1.22 或更高版本
+1. 安装 Go 1.26.1 或更高版本
 2. 在项目目录执行：
 
 ```powershell
@@ -90,45 +54,18 @@ go build -ldflags='-H windowsgui' -o stand-reminder.exe .
 ```
 
 4. 程序启动后会进入系统托盘
-5. 单击托盘图标打开控制中心
+5. 单击托盘图标可打开控制中心
 
-## 开发调试
+## 数据与发布说明
 
-如果你只是临时调试，也可以直接运行：
+- 程序运行时会在可执行文件同目录下创建 `stand-reminder.db`
+- 本地数据库文件不会提交到 Git 仓库
+- GitHub Actions 会自动构建 Windows 可执行文件
+- 推送形如 `v*` 的标签时，会自动生成 Release 并上传 zip 包
 
-```powershell
-go run .
-```
+## 致谢
 
-但正式使用更推荐构建后运行 `stand-reminder.exe`。
+今天统计图的 UI 实现思路参考了 Mizuki 的文章，感谢原作者提供的设计与实现分享。
 
-## GitHub Actions
-
-仓库内置了 Windows 构建工作流：
-
-- 推送到分支时会自动构建 Windows 可执行文件
-- 推送形如 `v*` 的标签时，会自动生成 Release
-- Release 中的 `config.json` 由 GitHub Actions 根据 `config.example.json` 自动生成
-- 你的本地 `config.json` 不会被打包进仓库历史
-- Release 默认上传打包后的 zip 文件
-
-## 项目结构
-
-```text
-.
-├─ main.go
-├─ config.example.json
-├─ .github/workflows/build.yml
-└─ internal/
-   ├─ activity/    # Windows 活动检测
-   ├─ app/         # 应用状态与控制逻辑
-   ├─ config/      # 配置加载与保存
-   ├─ notify/      # Windows 通知
-   ├─ reminder/    # 久坐计时逻辑
-   ├─ tray/        # 系统托盘
-   └─ web/         # 本地网页控制台
-```
-
-## 说明
-
-当前版本仅支持 Windows。
+- 本文作者：Mizuki
+- 本文链接：https://www.cnblogs.com/mizuki-vone/p/17752988.html

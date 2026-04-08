@@ -2,7 +2,6 @@ package app
 
 import (
 	"log"
-	"path/filepath"
 	"sync"
 	"time"
 
@@ -38,7 +37,6 @@ type Snapshot struct {
 
 type App struct {
 	mu         sync.RWMutex
-	configPath string
 	cfg        config.Config
 	detector   activity.Detector
 	notifier   *notify.WindowsNotifier
@@ -49,24 +47,18 @@ type App struct {
 	breakUntil time.Time
 }
 
-func New(configPath string) (*App, error) {
-	cfg, err := config.Load(configPath)
+func New(dbPath string) (*App, error) {
+	store, cfg, err := stats.Open(dbPath)
 	if err != nil {
 		return nil, err
 	}
 
 	n := notify.NewWindowsNotifier()
-	store, err := stats.Open(filepath.Join(filepath.Dir(configPath), "stats.json"))
-	if err != nil {
-		return nil, err
-	}
-
 	app := &App{
-		configPath: configPath,
-		cfg:        cfg,
-		detector:   activity.NewDetector(),
-		notifier:   &n,
-		store:      store,
+		cfg:      cfg,
+		detector: activity.NewDetector(),
+		notifier: &n,
+		store:    store,
 	}
 	app.rebuildLocked(cfg)
 	app.resetStateLocked(string(reminder.StateIdle))
@@ -213,7 +205,7 @@ func (a *App) UpdateConfig(cfg config.Config) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
-	if err := config.Save(a.configPath, cfg); err != nil {
+	if err := a.store.SaveConfig(cfg); err != nil {
 		return err
 	}
 

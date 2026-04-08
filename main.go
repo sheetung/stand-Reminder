@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"log"
 	"os"
 	"path/filepath"
@@ -20,14 +19,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to resolve executable path: %v", err)
 	}
-	configPath := filepath.Join(filepath.Dir(exePath), "config.json")
+	exeDir := filepath.Dir(exePath)
+	dbPath := filepath.Join(exeDir, "stand-reminder.db")
 
-	application, err := app.New(configPath)
+	application, err := app.New(dbPath)
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			log.Fatalf("config file not found: %s", configPath)
-		}
-
 		log.Fatalf("failed to start app: %v", err)
 	}
 

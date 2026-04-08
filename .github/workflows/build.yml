@@ -23,7 +23,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.26.1'
 
       - name: Download dependencies
         run: go mod tidy
@@ -47,17 +47,11 @@ jobs:
       - name: Build executable
         run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
 
-      - name: Generate release config
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        run: |
-          Copy-Item "config.example.json" "config.json" -Force
-
       - name: Prepare release bundle
         if: github.ref_type == 'tag'
         shell: pwsh
         run: |
-          Compress-Archive -Path "${{ steps.meta.outputs.exe_name }}", "config.json", "README.md" -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
+          Compress-Archive -Path "${{ steps.meta.outputs.exe_name }}", "README.md" -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

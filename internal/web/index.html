@@ -67,7 +67,7 @@
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
     gap: 24px;
-    align-items: start;
+    align-items: stretch;
   }
 
   .toolbar,
@@ -226,6 +226,11 @@
   .message,
   .stats-empty {
     color: var(--muted);
+  }
+
+  .hero,
+  .status-panel {
+    height: 100%;
   }
 
   .status-panel {
@@ -1334,6 +1339,7 @@
   </script>
 </body>
 </html>
+
 
 
 

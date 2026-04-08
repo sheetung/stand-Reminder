@@ -15,6 +15,16 @@ type Config struct {
 	NotificationMessage  string `json:"notification_message"`
 }
 
+func Default() Config {
+	return Config{
+		RemindAfterMinutes:   45,
+		IdleResetMinutes:     5,
+		CheckIntervalSeconds: 5,
+		NotificationTitle:    "Stand Reminder",
+		NotificationMessage:  "You've been active for a while. Time to stand up and stretch.",
+	}
+}
+
 func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -74,11 +84,18 @@ func (c Config) Validate() error {
 }
 
 func ExampleJSON() string {
-	return strings.TrimSpace(`{
-  "remind_after_minutes": 45,
-  "idle_reset_minutes": 5,
-  "check_interval_seconds": 5,
-  "notification_title": "Stand Reminder",
-  "notification_message": "You've been active for a while. Time to stand up and stretch."
-}`)
+	defaults := Default()
+	return strings.TrimSpace(fmt.Sprintf(`{
+  "remind_after_minutes": %d,
+  "idle_reset_minutes": %d,
+  "check_interval_seconds": %d,
+  "notification_title": %q,
+  "notification_message": %q
+}`,
+		defaults.RemindAfterMinutes,
+		defaults.IdleResetMinutes,
+		defaults.CheckIntervalSeconds,
+		defaults.NotificationTitle,
+		defaults.NotificationMessage,
+	))
 }
