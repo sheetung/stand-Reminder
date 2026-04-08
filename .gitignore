@@ -1,4 +1,5 @@
-.gocache/
+﻿.gocache/
 .gomodcache/
 .gopath/
 stand-reminder.exe
+config.json

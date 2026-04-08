@@ -1,4 +1,4 @@
-name: build-windows
+﻿name: build-windows
 
 on:
   push:
@@ -46,6 +46,12 @@ jobs:
 
       - name: Build executable
         run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
+
+      - name: Generate release config
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          Copy-Item "config.example.json" "config.json" -Force
 
       - name: Prepare release bundle
         if: github.ref_type == 'tag'

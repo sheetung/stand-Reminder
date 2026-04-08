@@ -1,7 +1,7 @@
-{
+﻿{
   "remind_after_minutes": 45,
   "idle_reset_minutes": 5,
   "check_interval_seconds": 5,
   "notification_title": "Stand Reminder",
-  "notification_message": "啊吧啊吧"
+  "notification_message": "You've been active for a while. Time to stand up and stretch."
 }
