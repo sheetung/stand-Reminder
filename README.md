@@ -77,3 +77,8 @@ go build -ldflags='-H windowsgui' -o stand-reminder.exe .
 
 - 本文作者：Mizuki
 - 本文链接：https://www.cnblogs.com/mizuki-vone/p/17752988.html
+
+## 声明
+
+- 本项目采用 MIT License 开源协议。
+- 本工程由 Codex 协助编写与迭代实现。
