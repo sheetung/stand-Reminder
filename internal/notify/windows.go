@@ -18,6 +18,7 @@ const appID = "StandReminder.App"
 
 type WindowsNotifier struct {
 	exePath      string
+	openURL      string
 	shortcutOnce sync.Once
 	shortcutErr  error
 }
@@ -25,6 +26,10 @@ type WindowsNotifier struct {
 func NewWindowsNotifier() WindowsNotifier {
 	exePath, _ := resolveNotificationTarget()
 	return WindowsNotifier{exePath: exePath}
+}
+
+func (n *WindowsNotifier) SetOpenURL(url string) {
+	n.openURL = strings.TrimSpace(url)
 }
 
 func (n *WindowsNotifier) Notify(title, message string) error {
@@ -178,26 +183,31 @@ func (n *WindowsNotifier) showToast(title, message string) error {
 $ErrorActionPreference = 'Stop'
 [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
 [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null
+Add-Type -AssemblyName System.Security
 
 $appID = $env:STAND_APP_ID
-$title = $env:STAND_TITLE
-$message = $env:STAND_MESSAGE
+$title = [System.Security.SecurityElement]::Escape($env:STAND_TITLE)
+$message = [System.Security.SecurityElement]::Escape($env:STAND_MESSAGE)
+$openUrl = $env:STAND_OPEN_URL
+$escapedUrl = [System.Security.SecurityElement]::Escape($openUrl)
 
-$template = '<toast><visual><binding template="ToastGeneric"><text></text><text></text></binding></visual></toast>'
+$template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual></toast>'
+if ($openUrl) {
+    $template = '<toast activationType="protocol" launch="' + $escapedUrl + '"><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="Open Control Center" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
+}
+
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $xml.LoadXml($template)
-$texts = $xml.GetElementsByTagName('text')
-$texts.Item(0).AppendChild($xml.CreateTextNode($title)) > $null
-$texts.Item(1).AppendChild($xml.CreateTextNode($message)) > $null
 $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appID)
 $notifier.Show($toast)
 `)
 
 	return runPowerShell(script, map[string]string{
-		"STAND_APP_ID":  appID,
-		"STAND_TITLE":   title,
-		"STAND_MESSAGE": message,
+		"STAND_APP_ID":   appID,
+		"STAND_TITLE":    title,
+		"STAND_MESSAGE":  message,
+		"STAND_OPEN_URL": n.openURL,
 	})
 }
 

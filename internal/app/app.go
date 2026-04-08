@@ -64,6 +64,12 @@ func New(configPath string) (*App, error) {
 	return app, nil
 }
 
+func (a *App) SetControlCenterURL(url string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.notifier.SetOpenURL(url)
+}
+
 func (a *App) Run() {
 	for {
 		a.mu.RLock()

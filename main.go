@@ -42,6 +42,7 @@ func main() {
 	}()
 
 	controlCenterURL := "http://" + webAddress
+	application.SetControlCenterURL(controlCenterURL)
 	go func() {
 		if err := application.NotifyStarted(controlCenterURL); err != nil {
 			log.Printf("failed to send startup notification: %v", err)
