@@ -532,10 +532,10 @@
         <article class="status-panel">
           <div id="statusChip" class="status-chip">加载中</div>
           <div class="metrics">
-            <div class="metric"><span data-i18n="metricAccumulated">已累计</span><strong id="accumulatedValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricRemaining">剩余</span><strong id="remainingValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricIdle">空闲</span><strong id="idleValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricMedia">媒体播放</span><strong id="mediaValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricRemaining">Remaining</span><strong id="remainingValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricAccumulated">Accumulated</span><strong id="accumulatedValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricIdleAccumulated">Idle Time</span><strong id="idleValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricMedia">Media</span><strong id="mediaValue">--</strong></div>
           </div>
         </article>
       </section>
@@ -601,144 +601,11 @@
   </main>
 
   <script>
-    const i18n = {
-      zh: {
-        eyebrow: 'Stand Reminder Console',
-        heroTitle: '快速控制区',
-        heroSub: '这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。',
-        btnTest: '测试通知',
-        btnPause: '暂停',
-        btnResume: '开始 / 恢复',
-        btnBreak: '我已起身活动',
-        btnRefresh: '刷新',
-        btnSave: '保存设置',
-        breakTitle: '活动休息',
-        breakSub: '休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。',
-        guidePauseTitle: '暂停',
-        guidePauseBody: '临时停止累计并且不再提醒，适合开会或暂时不想被打扰。',
-        guideBreakTitle: '我已起身活动',
-        guideBreakBody: '立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。',
-        metricAccumulated: '已累计',
-        metricRemaining: '剩余',
-        metricIdle: '空闲',
-        metricMedia: '媒体播放',
-        mediaPlaying: '播放中',
-        mediaStopped: '未播放',
-        statsTitle: '数据统计',
-        statsHint: '按时间周期查看久坐累计、提醒次数和活动休息次数。',
-        rangeToday: '今天',
-        range7d: '7天',
-        range20d: '20天',
-        statsTotalActive: '累计时长',
-        statsTotalReminders: '提醒次数',
-        statsTotalBreaks: '活动休息',
-        statsTotalIdleResets: '空闲重置',
-        statsNoData: '当前周期还没有统计数据。',
-        statsHoverDefault: '鼠标停在图表上，可查看这一段的工作、休息、空闲和暂停时间。',
-        statsWork: '工作',
-        statsBreak: '休息',
-        statsIdle: '空闲',
-        statsPaused: '暂停',
-        settingsTitle: '提醒设置',
-        settingsHint: '保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。',
-        labelRemindAfter: '提醒分钟数',
-        labelIdleReset: '空闲重置分钟数',
-        labelCheckInterval: '检测间隔秒数',
-        labelTitle: '通知标题',
-        labelMessage: '通知内容',
-        status: {
-          active: '计时中',
-          paused: '自动暂停',
-          manual_paused: '已手动暂停',
-          break_mode: '活动休息中',
-          idle: '空闲中',
-          idle_reset: '空闲已重置',
-          reminder_triggered: '刚触发提醒'
-        },
-        msgSaving: '正在保存...',
-        msgSaved: '已保存，计时器已按新设置重新开始。',
-        msgSaveFailed: '保存失败',
-        msgSending: '正在发送测试通知...',
-        msgSent: '通知已发送。',
-        msgTestFailed: '测试失败',
-        msgActionFailed: '操作失败',
-        msgPaused: '已暂停提醒。',
-        msgResumed: '已开始 / 恢复计时。',
-        msgBreakStarted: '已进入 10 分钟活动休息。',
-        msgRefreshed: '状态已刷新。',
-        msgEditing: '你有未保存的修改，状态会继续刷新，但表单不会被覆盖。',
-        msgStatsFailed: '统计加载失败。',
-        breakDone: '休息已结束，请手动点击“开始 / 恢复”继续计时。'
-      },
-      en: {
-        eyebrow: 'Stand Reminder Console',
-        heroTitle: 'Quick Controls',
-        heroSub: 'Use these controls to pause reminders, resume counting, start a 10-minute movement break, or send a test notification.',
-        btnTest: 'Test Notification',
-        btnPause: 'Pause',
-        btnResume: 'Start / Resume',
-        btnBreak: 'I Took a Break',
-        btnRefresh: 'Refresh',
-        btnSave: 'Save Settings',
-        breakTitle: 'Movement Break',
-        breakSub: 'When the break ends, the timer stays stopped until you click Start / Resume.',
-        guidePauseTitle: 'Pause',
-        guidePauseBody: 'Temporarily stop counting and suppress reminders while you are busy.',
-        guideBreakTitle: 'I Took a Break',
-        guideBreakBody: 'Stop the sitting timer immediately and start a 10-minute movement timer on this page.',
-        metricAccumulated: 'Accumulated',
-        metricRemaining: 'Remaining',
-        metricIdle: 'Idle',
-        metricMedia: 'Media Playback',
-        mediaPlaying: 'Playing',
-        mediaStopped: 'Not Playing',
-        statsTitle: 'Statistics',
-        statsHint: 'Review sitting time, reminders, and breaks by selected date range.',
-        rangeToday: 'Today',
-        range7d: '7 Days',
-        range20d: '20 Days',
-        statsTotalActive: 'Active Time',
-        statsTotalReminders: 'Reminders',
-        statsTotalBreaks: 'Breaks',
-        statsTotalIdleResets: 'Idle Resets',
-        statsNoData: 'No statistics yet for this range.',
-        statsHoverDefault: 'Hover a chart region to see work, break, idle, and pause time for that period.',
-        statsWork: 'Work',
-        statsBreak: 'Break',
-        statsIdle: 'Idle',
-        statsPaused: 'Paused',
-        settingsTitle: 'Reminder Settings',
-        settingsHint: 'Saving writes to config.json immediately and resets the timer using the new schedule. Auto refresh will not overwrite the form while you are editing.',
-        labelRemindAfter: 'Remind After Minutes',
-        labelIdleReset: 'Idle Reset Minutes',
-        labelCheckInterval: 'Check Interval Seconds',
-        labelTitle: 'Notification Title',
-        labelMessage: 'Notification Message',
-        status: {
-          active: 'Active',
-          paused: 'Auto Paused',
-          manual_paused: 'Paused by You',
-          break_mode: 'On Break',
-          idle: 'Idle',
-          idle_reset: 'Idle Reset',
-          reminder_triggered: 'Reminder Triggered'
-        },
-        msgSaving: 'Saving...',
-        msgSaved: 'Saved. Timer restarted with the new settings.',
-        msgSaveFailed: 'Save failed',
-        msgSending: 'Sending test notification...',
-        msgSent: 'Notification sent.',
-        msgTestFailed: 'Test failed',
-        msgActionFailed: 'Action failed',
-        msgPaused: 'Reminder paused.',
-        msgResumed: 'Timer started again.',
-        msgBreakStarted: 'Break started. 10-minute activity timer is running.',
-        msgRefreshed: 'Status refreshed.',
-        msgEditing: 'You have unsaved changes. Live status still refreshes, but the form will not be overwritten.',
-        msgStatsFailed: 'Failed to load statistics.',
-        breakDone: 'Break finished. Click Start / Resume when you want to continue counting.'
-      }
+    const localePaths = {
+      zh: '/locales/zh.json',
+      en: '/locales/en.json',
     };
+    const i18n = {};
 
     let currentLang = 'zh';
     let breakEndsAt = null;
@@ -771,10 +638,30 @@
     };
 
     function t(key) {
-      return i18n[currentLang][key] || key;
+      return i18n[currentLang]?.[key] || key;
+    }
+
+    async function ensureLocale(lang) {
+      if (i18n[lang]) return i18n[lang];
+      const response = await fetch(localePaths[lang]);
+      if (!response.ok) throw new Error(`Failed to load locale: ${lang}`);
+      i18n[lang] = await response.json();
+      return i18n[lang];
+    }
+
+    async function switchLanguage(lang) {
+      await ensureLocale(lang);
+      currentLang = lang;
+      applyLanguage();
+      if (formDirty) {
+        setMessage(t('msgEditing'), 'warn');
+      }
+      await refresh().catch(() => {});
+      await refreshStats().catch(() => {});
     }
 
     function applyLanguage() {
+      if (!i18n[currentLang]) return;
       document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
       document.querySelectorAll('[data-i18n]').forEach((node) => {
         node.textContent = t(node.dataset.i18n);
@@ -804,7 +691,7 @@
     }
 
     function prettyStatus(status) {
-      return i18n[currentLang].status[status] || status || 'Unknown';
+      return i18n[currentLang]?.status?.[status] || status || 'Unknown';
     }
 
     function setMessage(text, type = '') {
@@ -847,9 +734,9 @@
     }
 
     function renderStatus(data) {
-      document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
-      document.getElementById('idleValue').textContent = formatDuration(data.idle_seconds);
+      document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
+      document.getElementById('idleValue').textContent = formatDuration(data.idle_accumulated_seconds);
       document.getElementById('mediaValue').textContent = data.media_playing ? t('mediaPlaying') : t('mediaStopped');
 
       const chip = document.getElementById('statusChip');
@@ -1293,23 +1180,11 @@
     });
 
     langZh.addEventListener('click', () => {
-      currentLang = 'zh';
-      applyLanguage();
-      if (formDirty) {
-        setMessage(t('msgEditing'), 'warn');
-      }
-      refresh().catch(() => {});
-      refreshStats().catch(() => {});
+      switchLanguage('zh').catch((error) => setMessage(error.message || 'Locale load failed', 'error'));
     });
 
     langEn.addEventListener('click', () => {
-      currentLang = 'en';
-      applyLanguage();
-      if (formDirty) {
-        setMessage(t('msgEditing'), 'warn');
-      }
-      refresh().catch(() => {});
-      refreshStats().catch(() => {});
+      switchLanguage('en').catch((error) => setMessage(error.message || 'Locale load failed', 'error'));
     });
 
     form.addEventListener('submit', async (event) => {
@@ -1330,12 +1205,17 @@
       }
     });
 
-    applyLanguage();
-    refresh().catch((error) => setMessage(error.message, 'error'));
-    refreshStats().catch((error) => setMessage(error.message || t('msgStatsFailed'), 'error'));
-    setInterval(() => refresh().catch(() => {}), 2000);
-    setInterval(updateBreakTimer, 1000);
-    setInterval(() => refreshStats().catch(() => {}), 60000);
+    async function boot() {
+      await Promise.all([ensureLocale('zh'), ensureLocale('en')]);
+      applyLanguage();
+      await refresh();
+      await refreshStats();
+      setInterval(() => refresh().catch(() => {}), 2000);
+      setInterval(updateBreakTimer, 1000);
+      setInterval(() => refreshStats().catch(() => {}), 60000);
+    }
+
+    boot().catch((error) => setMessage(error.message || t('msgStatsFailed'), 'error'));
   </script>
 </body>
 </html>

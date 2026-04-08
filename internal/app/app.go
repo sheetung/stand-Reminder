@@ -19,20 +19,21 @@ const (
 )
 
 type Snapshot struct {
-	Status               string `json:"status"`
-	IdleSeconds          int64  `json:"idle_seconds"`
-	MediaPlaying         bool   `json:"media_playing"`
-	AccumulatedSeconds   int64  `json:"accumulated_seconds"`
-	RemainingSeconds     int64  `json:"remaining_seconds"`
-	RemindAfterMinutes   int    `json:"remind_after_minutes"`
-	IdleResetMinutes     int    `json:"idle_reset_minutes"`
-	CheckIntervalSeconds int    `json:"check_interval_seconds"`
-	NotificationTitle    string `json:"notification_title"`
-	NotificationMessage  string `json:"notification_message"`
-	Paused               bool   `json:"paused"`
-	OnBreak              bool   `json:"on_break"`
-	BreakEndsAt          string `json:"break_ends_at"`
-	UpdatedAt            string `json:"updated_at"`
+	Status                 string `json:"status"`
+	IdleSeconds            int64  `json:"idle_seconds"`
+	IdleAccumulatedSeconds int64  `json:"idle_accumulated_seconds"`
+	MediaPlaying           bool   `json:"media_playing"`
+	AccumulatedSeconds     int64  `json:"accumulated_seconds"`
+	RemainingSeconds       int64  `json:"remaining_seconds"`
+	RemindAfterMinutes     int    `json:"remind_after_minutes"`
+	IdleResetMinutes       int    `json:"idle_reset_minutes"`
+	CheckIntervalSeconds   int    `json:"check_interval_seconds"`
+	NotificationTitle      string `json:"notification_title"`
+	NotificationMessage    string `json:"notification_message"`
+	Paused                 bool   `json:"paused"`
+	OnBreak                bool   `json:"on_break"`
+	BreakEndsAt            string `json:"break_ends_at"`
+	UpdatedAt              string `json:"updated_at"`
 }
 
 type App struct {
@@ -156,6 +157,9 @@ func (a *App) Run() {
 		a.state.IdleSeconds = int64(effectiveIdle / time.Second)
 		a.state.MediaPlaying = mediaPlaying
 		a.state.AccumulatedSeconds = int64(result.Accumulated / time.Second)
+		if result.State == reminder.StatePaused || result.State == reminder.StateIdle || result.State == reminder.StateIdleReset {
+			a.state.IdleAccumulatedSeconds += int64(interval / time.Second)
+		}
 		a.state.RemainingSeconds = int64(result.Remaining / time.Second)
 		a.state.UpdatedAt = now.Format(time.RFC3339)
 		if result.State == reminder.StateIdleReset || result.State == reminder.StateReminderTriggered {
@@ -270,6 +274,7 @@ func (a *App) StartBreak() Snapshot {
 	a.state.OnBreak = true
 	a.state.BreakEndsAt = a.breakUntil.Format(time.RFC3339)
 	a.state.IdleSeconds = 0
+	a.state.IdleAccumulatedSeconds = 0
 	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
@@ -286,6 +291,7 @@ func (a *App) resetStateLocked(status string) {
 	a.state.OnBreak = false
 	a.state.BreakEndsAt = ""
 	a.state.IdleSeconds = 0
+	a.state.IdleAccumulatedSeconds = 0
 	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)

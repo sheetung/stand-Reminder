@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"path"
 
 	"stand-reminder/internal/app"
 	"stand-reminder/internal/config"
 )
 
-//go:embed index.html
+//go:embed index.html locales/*.json
 var assets embed.FS
 
 type Server struct {
@@ -28,6 +29,7 @@ func NewServer(application *app.App) *Server {
 func (s *Server) ListenAndServe(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/locales/", s.handleLocale)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/stats", s.handleStats)
 	mux.HandleFunc("/api/config", s.handleConfig)
@@ -49,6 +51,28 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(data)
+}
+
+func (s *Server) handleLocale(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	name := path.Base(r.URL.Path)
+	if name != "zh.json" && name != "en.json" {
+		http.NotFound(w, r)
+		return
+	}
+
+	data, err := assets.ReadFile("locales/" + name)
+	if err != nil {
+		http.Error(w, "failed to load locale", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	_, _ = w.Write(data)
 }
 
