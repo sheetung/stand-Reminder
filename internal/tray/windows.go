@@ -39,12 +39,16 @@ var (
 )
 
 const (
-	wmDestroy      = 0x0002
-	wmCommand      = 0x0111
-	wmApp          = 0x8000
-	wmTrayCallback = wmApp + 1
-	wmLButtonUp    = 0x0202
-	wmRButtonUp    = 0x0205
+	wmDestroy       = 0x0002
+	wmCommand       = 0x0111
+	wmApp           = 0x8000
+	wmTrayCallback  = wmApp + 1
+	wmLButtonUp     = 0x0202
+	wmLButtonDblClk = 0x0203
+	wmRButtonUp     = 0x0205
+	wmContextMenu   = 0x007B
+	ninSelect       = 0x0400
+	ninKeySelect    = 0x0401
 
 	csHRedraw = 0x0002
 	csVRedraw = 0x0001
@@ -209,10 +213,11 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 
 	switch uint32(msgID) {
 	case wmTrayCallback:
-		switch uint32(lParam) {
-		case wmLButtonUp:
+		eventCode := uint32(lParam & 0xffff)
+		switch eventCode {
+		case wmLButtonUp, wmLButtonDblClk, ninSelect, ninKeySelect:
 			openBrowser(trayURL)
-		case wmRButtonUp:
+		case wmRButtonUp, wmContextMenu:
 			showMenu(hwnd)
 		}
 		return 0
