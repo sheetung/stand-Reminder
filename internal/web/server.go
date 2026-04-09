@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path"
 
+	appassets "stand-reminder/assets"
 	"stand-reminder/internal/app"
 	"stand-reminder/internal/config"
 )
@@ -29,6 +30,7 @@ func NewServer(application *app.App) *Server {
 func (s *Server) ListenAndServe(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
+	mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	mux.HandleFunc("/locales/", s.handleLocale)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/stats", s.handleStats)
@@ -52,6 +54,17 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(data)
+}
+
+func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	_, _ = w.Write(appassets.StandReminderICO)
 }
 
 func (s *Server) handleLocale(w http.ResponseWriter, r *http.Request) {

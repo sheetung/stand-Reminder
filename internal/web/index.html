@@ -1,8 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
   <title>Stand Reminder Control Center</title>
   <style>
   :root {
@@ -81,12 +82,19 @@
   .eyebrow {
     display: inline-flex;
     align-items: center;
+    gap: 6px;
     padding: 8px 12px;
     border-radius: 999px;
     background: rgba(25, 118, 210, 0.08);
     color: var(--accent-strong);
     font-size: 13px;
     font-weight: 600;
+  }
+
+  .eyebrow a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .lang-switch,
@@ -497,45 +505,44 @@
       <section class="top-row">
         <article class="hero">
           <div class="toolbar">
-            <div class="eyebrow" data-i18n="eyebrow">Stand Reminder Console</div>
+            <div class="eyebrow"><span id="eyebrowName"></span>&nbsp;<a id="eyebrowVersion" href="https://github.com/sheetung/stand-Reminder" target="_blank" rel="noreferrer">v0.1.1</a></div>
             <div class="lang-switch">
               <button id="langZh" class="active" type="button">中文</button>
               <button id="langEn" type="button">EN</button>
             </div>
           </div>
-          <h1 data-i18n="heroTitle">快速控制区</h1>
-          <p class="sub" data-i18n="heroSub">这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。</p>
+          <h1 data-i18n="heroTitle"></h1>
+          <p class="sub" data-i18n="heroSub"></p>
           <div class="quick-actions">
-            <button class="quick-primary" type="button" id="heroTestButton" data-i18n="btnTest">测试通知</button>
-            <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause">暂停</button>
-            <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume">开始 / 恢复</button>
-            <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak">我已起身活动</button>
-            <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh">刷新</button>
+            <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause"></button>
+            <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume"></button>
+            <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak"></button>
+            <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh"></button>
           </div>
           <div id="breakCard" class="guide-card break-card">
-            <strong data-i18n="breakTitle">活动休息</strong>
-            <span data-i18n="breakSub">休息倒计时结束后，不会自动恢复计时，需要你手动点击“开始 / 恢复”。</span>
+            <strong data-i18n="breakTitle"></strong>
+            <span data-i18n="breakSub"></span>
             <div id="breakTimer" class="break-timer">10:00</div>
           </div>
           <div class="quick-guide">
             <div class="guide-card">
-              <strong data-i18n="guidePauseTitle">暂停</strong>
-              <span data-i18n="guidePauseBody">临时停止累计并且不再提醒，适合开会或暂时不想被打扰。</span>
+              <strong data-i18n="guidePauseTitle"></strong>
+              <span data-i18n="guidePauseBody"></span>
             </div>
             <div class="guide-card">
-              <strong data-i18n="guideBreakTitle">我已起身活动</strong>
-              <span data-i18n="guideBreakBody">立刻停止久坐计时，并在页面里开始一个 10 分钟活动倒计时。</span>
+              <strong data-i18n="guideBreakTitle"></strong>
+              <span data-i18n="guideBreakBody"></span>
             </div>
           </div>
         </article>
 
         <article class="status-panel">
-          <div id="statusChip" class="status-chip">加载中</div>
+          <div id="statusChip" class="status-chip">--</div>
           <div class="metrics">
-            <div class="metric"><span data-i18n="metricRemaining">Remaining</span><strong id="remainingValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricAccumulated">Accumulated</span><strong id="accumulatedValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricIdleAccumulated">Idle Time</span><strong id="idleValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricMedia">Media</span><strong id="mediaValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricRemaining"></span><strong id="remainingValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricAccumulated"></span><strong id="accumulatedValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricIdleAccumulated"></span><strong id="idleValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricMedia"></span><strong id="mediaValue">--</strong></div>
           </div>
         </article>
       </section>
@@ -543,56 +550,56 @@
       <article class="stats-panel">
         <div class="stats-header">
           <div>
-            <h2 data-i18n="statsTitle">数据统计</h2>
-            <p class="hint" data-i18n="statsHint">按时间周期查看久坐累计、提醒次数和活动休息次数。</p>
+            <h2 data-i18n="statsTitle"></h2>
+            <p class="hint" data-i18n="statsHint"></p>
           </div>
           <div class="range-switch">
-            <button id="rangeToday" class="active" type="button" data-range="today" data-i18n="rangeToday">今天</button>
-            <button id="range7d" type="button" data-range="7d" data-i18n="range7d">7天</button>
-            <button id="range20d" type="button" data-range="20d" data-i18n="range20d">20天</button>
+            <button id="rangeToday" class="active" type="button" data-range="today" data-i18n="rangeToday"></button>
+            <button id="range7d" type="button" data-range="7d" data-i18n="range7d"></button>
+            <button id="range20d" type="button" data-range="20d" data-i18n="range20d"></button>
           </div>
         </div>
         <div class="stats-summary">
-          <div class="summary-card"><span data-i18n="statsTotalActive">累计时长</span><strong id="statsActiveValue">--</strong></div>
-          <div class="summary-card"><span data-i18n="statsTotalReminders">提醒次数</span><strong id="statsReminderValue">--</strong></div>
-          <div class="summary-card"><span data-i18n="statsTotalBreaks">活动休息</span><strong id="statsBreakValue">--</strong></div>
-          <div class="summary-card"><span data-i18n="statsTotalIdleResets">空闲重置</span><strong id="statsIdleResetValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalActive"></span><strong id="statsActiveValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalReminders"></span><strong id="statsReminderValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalBreaks"></span><strong id="statsBreakValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalIdleResets"></span><strong id="statsIdleResetValue">--</strong></div>
         </div>
         <div id="statsHoverInfo" class="stats-hover-info"></div>
         <div id="statsDays" class="stats-chart"></div>
       </article>
 
       <article class="panel">
-        <h2 data-i18n="settingsTitle">提醒设置</h2>
-        <p class="hint" data-i18n="settingsHint">保存后会立刻写入 config.json，并按新参数重置当前计时。编辑表单时不会再被自动刷新覆盖。</p>
+        <h2 data-i18n="settingsTitle"></h2>
+        <p class="hint" data-i18n="settingsHint"></p>
         <form id="configForm">
           <div class="field-grid">
             <label>
-              <span data-i18n="labelRemindAfter">提醒分钟数</span>
+              <span data-i18n="labelRemindAfter"></span>
               <input id="remindAfterMinutes" type="number" min="1" required />
             </label>
             <label>
-              <span data-i18n="labelIdleReset">空闲重置分钟数</span>
+              <span data-i18n="labelIdleReset"></span>
               <input id="idleResetMinutes" type="number" min="1" required />
             </label>
           </div>
           <div class="field-grid">
             <label>
-              <span data-i18n="labelCheckInterval">检测间隔秒数</span>
+              <span data-i18n="labelCheckInterval"></span>
               <input id="checkIntervalSeconds" type="number" min="1" required />
             </label>
             <label>
-              <span data-i18n="labelTitle">通知标题</span>
+              <span data-i18n="labelTitle"></span>
               <input id="notificationTitle" type="text" required />
             </label>
           </div>
           <label>
-            <span data-i18n="labelMessage">通知内容</span>
+            <span data-i18n="labelMessage"></span>
             <textarea id="notificationMessage" required></textarea>
           </label>
           <div class="actions">
-            <button class="primary" type="submit" data-i18n="btnSave">保存设置</button>
-            <button class="secondary" type="button" id="testButton" data-i18n="btnTest">测试通知</button>
+            <button class="primary" type="submit" data-i18n="btnSave"></button>
+            <button class="secondary" type="button" id="testButton" data-i18n="btnTest"></button>
           </div>
         </form>
         <div id="message" class="message"></div>
@@ -606,6 +613,8 @@
       en: '/locales/en.json',
     };
     const i18n = {};
+    const appVersion = 'v0.1.1';
+    const repoURL = 'https://github.com/sheetung/stand-Reminder';
 
     let currentLang = 'zh';
     let breakEndsAt = null;
@@ -616,13 +625,14 @@
     const form = document.getElementById('configForm');
     const messageEl = document.getElementById('message');
     const testButton = document.getElementById('testButton');
-    const heroTestButton = document.getElementById('heroTestButton');
     const heroPauseButton = document.getElementById('heroPauseButton');
     const heroResumeButton = document.getElementById('heroResumeButton');
     const heroBreakButton = document.getElementById('heroBreakButton');
     const heroRefreshButton = document.getElementById('heroRefreshButton');
     const langZh = document.getElementById('langZh');
     const langEn = document.getElementById('langEn');
+    const eyebrowName = document.getElementById('eyebrowName');
+    const eyebrowVersion = document.getElementById('eyebrowVersion');
     const breakCard = document.getElementById('breakCard');
     const breakTimer = document.getElementById('breakTimer');
     const statsDays = document.getElementById('statsDays');
@@ -666,6 +676,9 @@
       document.querySelectorAll('[data-i18n]').forEach((node) => {
         node.textContent = t(node.dataset.i18n);
       });
+      eyebrowName.textContent = t('eyebrowName');
+      eyebrowVersion.textContent = appVersion;
+      eyebrowVersion.href = repoURL;
       langZh.classList.toggle('active', currentLang === 'zh');
       langEn.classList.toggle('active', currentLang === 'en');
       rangeButtons.forEach((button) => {
@@ -1193,7 +1206,6 @@
     });
 
     testButton.addEventListener('click', sendTestNotification);
-    heroTestButton.addEventListener('click', sendTestNotification);
     heroPauseButton.addEventListener('click', () => runAction('pause', t('msgPaused')));
     heroResumeButton.addEventListener('click', () => runAction('resume', t('msgResumed')));
     heroBreakButton.addEventListener('click', () => runAction('break', t('msgBreakStarted')));

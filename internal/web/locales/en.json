@@ -1,7 +1,7 @@
 ﻿{
-  "eyebrow": "Stand Reminder Console",
+  "eyebrowName": "Stand Reminder",
   "heroTitle": "Quick Controls",
-  "heroSub": "Use these controls to pause reminders, resume counting, start a 10-minute movement break, or send a test notification.",
+  "heroSub": "Use these controls to pause reminders, resume counting, start a 10-minute movement break, or refresh the current status.",
   "btnTest": "Test Notification",
   "btnPause": "Pause",
   "btnResume": "Start / Resume",

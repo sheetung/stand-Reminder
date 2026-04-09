@@ -1,4 +1,4 @@
-﻿name: build-windows
+name: build-windows
 
 on:
   push:
@@ -47,6 +47,10 @@ jobs:
       - name: Build executable
         run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
 
+      - name: Embed application icon
+        shell: pwsh
+        run: .\scripts\embed-icon.ps1 -ExePath "${{ steps.meta.outputs.exe_name }}" -IconPath ".\assets\stand-reminder.ico"
+
       - name: Prepare release bundle
         if: github.ref_type == 'tag'
         shell: pwsh
@@ -68,14 +72,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Stand Reminder ${{ github.ref_name }}
-          body: |
-            ## Important Changes
-
-            - Migrated runtime storage from JSON files to a local SQLite database.
-            - Added a more polished local web control center with tray-first workflow.
-            - Improved statistics views, including today's timeline-style chart and 7-day / 20-day summaries.
-            - Refined Windows notification behavior and control-center navigation.
-            - Updated project documentation with UI screenshots and current usage notes.
           generate_release_notes: true
           files: |
             ${{ steps.meta.outputs.zip_name }}

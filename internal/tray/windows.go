@@ -4,10 +4,13 @@ package tray
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"syscall"
 	"unsafe"
+
+	appassets "stand-reminder/assets"
 )
 
 var (
@@ -24,6 +27,7 @@ var (
 	procPostQuitMessage     = user32.NewProc("PostQuitMessage")
 	procLoadIconW           = user32.NewProc("LoadIconW")
 	procLoadCursorW         = user32.NewProc("LoadCursorW")
+	procLoadImageW          = user32.NewProc("LoadImageW")
 	procCreatePopupMenu     = user32.NewProc("CreatePopupMenu")
 	procAppendMenuW         = user32.NewProc("AppendMenuW")
 	procTrackPopupMenu      = user32.NewProc("TrackPopupMenu")
@@ -47,6 +51,9 @@ const (
 
 	idiApplication = 32512
 	idcArrow       = 32512
+	imageIcon      = 1
+	lrLoadFromFile = 0x0010
+	lrDefaultSize  = 0x0040
 
 	cwUseDefault = 0x80000000
 
@@ -130,7 +137,7 @@ func Run(url string) error {
 	trayURL = url
 
 	instance := uintptr(0)
-	icon, _, _ := procLoadIconW.Call(0, idiApplication)
+	icon := loadTrayIcon()
 	cursor, _, _ := procLoadCursorW.Call(0, idcArrow)
 
 	wc := wndClassEx{
@@ -258,4 +265,29 @@ func showMenu(hwnd uintptr) {
 
 func openBrowser(url string) {
 	_ = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
+}
+
+func loadTrayIcon() uintptr {
+	iconPath, err := writeTempIconFile(appassets.StandReminderICO)
+	if err == nil {
+		ptr := syscall.StringToUTF16Ptr(iconPath)
+		icon, _, _ := procLoadImageW.Call(0, uintptr(unsafe.Pointer(ptr)), imageIcon, 0, 0, lrLoadFromFile|lrDefaultSize)
+		if icon != 0 {
+			return icon
+		}
+	}
+	icon, _, _ := procLoadIconW.Call(0, idiApplication)
+	return icon
+}
+
+func writeTempIconFile(data []byte) (string, error) {
+	file, err := os.CreateTemp("", "stand-reminder-*.ico")
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	if _, err := file.Write(data); err != nil {
+		return "", err
+	}
+	return file.Name(), nil
 }

@@ -1,7 +1,7 @@
 ﻿{
-  "eyebrow": "Stand Reminder Console",
+  "eyebrowName": "久坐提醒",
   "heroTitle": "快速控制区",
-  "heroSub": "这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或者直接测试通知。",
+  "heroSub": "这里放常用操作。你可以暂停提醒、恢复计时、开始 10 分钟活动休息，或刷新当前状态。",
   "btnTest": "测试通知",
   "btnPause": "暂停",
   "btnResume": "开始 / 恢复",
@@ -68,3 +68,5 @@
   "msgStatsFailed": "统计加载失败。",
   "breakDone": "休息已结束，请手动点击“开始 / 恢复”继续计时。"
 }
+
+
