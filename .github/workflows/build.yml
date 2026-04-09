@@ -41,7 +41,7 @@ jobs:
             $version = 'dev'
           }
           "version=$version" >> $env:GITHUB_OUTPUT
-          "exe_name=stand-reminder-$version.exe" >> $env:GITHUB_OUTPUT
+          "exe_name=stand-reminder.exe" >> $env:GITHUB_OUTPUT
           "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
 
       - name: Build executable
