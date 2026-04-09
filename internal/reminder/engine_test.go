@@ -9,6 +9,7 @@ func TestEngineAccumulatesWhileActive(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   15 * time.Second,
 		IdleReset:     10 * time.Second,
+		PauseAfter:    30 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -26,6 +27,7 @@ func TestEngineResetsAfterIdleThreshold(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   30 * time.Second,
 		IdleReset:     10 * time.Second,
+		PauseAfter:    30 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -42,15 +44,36 @@ func TestEngineResetsAfterIdleThreshold(t *testing.T) {
 	}
 }
 
-func TestEnginePausesWhenUserStopsInputBriefly(t *testing.T) {
+func TestEngineStaysActiveBeforePauseThreshold(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   30 * time.Second,
-		IdleReset:     20 * time.Second,
+		IdleReset:     2 * time.Minute,
+		PauseAfter:    30 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
 	engine.Update(1 * time.Second)
 	result := engine.Update(7 * time.Second)
+
+	if result.State != StateActive {
+		t.Fatalf("expected active state before pause threshold, got %s", result.State)
+	}
+
+	if result.Accumulated != 10*time.Second {
+		t.Fatalf("unexpected accumulated: %s", result.Accumulated)
+	}
+}
+
+func TestEnginePausesAfterPauseThreshold(t *testing.T) {
+	engine := NewEngine(Config{
+		RemindAfter:   30 * time.Second,
+		IdleReset:     2 * time.Minute,
+		PauseAfter:    30 * time.Second,
+		CheckInterval: 5 * time.Second,
+	})
+
+	engine.Update(1 * time.Second)
+	result := engine.Update(35 * time.Second)
 
 	if result.State != StatePaused {
 		t.Fatalf("expected paused state, got %s", result.State)
@@ -65,6 +88,7 @@ func TestEngineTriggersReminderAndRestartsCycle(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   10 * time.Second,
 		IdleReset:     20 * time.Second,
+		PauseAfter:    30 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 

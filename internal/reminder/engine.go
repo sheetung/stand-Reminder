@@ -5,6 +5,7 @@ import "time"
 type Config struct {
 	RemindAfter   time.Duration
 	IdleReset     time.Duration
+	PauseAfter    time.Duration
 	CheckInterval time.Duration
 }
 
@@ -28,14 +29,21 @@ type UpdateResult struct {
 type Engine struct {
 	remindAfter   time.Duration
 	idleReset     time.Duration
+	pauseAfter    time.Duration
 	checkInterval time.Duration
 	accumulated   time.Duration
 }
 
 func NewEngine(cfg Config) *Engine {
+	pauseAfter := cfg.PauseAfter
+	if pauseAfter <= 0 {
+		pauseAfter = 30 * time.Second
+	}
+
 	return &Engine{
 		remindAfter:   cfg.RemindAfter,
 		idleReset:     cfg.IdleReset,
+		pauseAfter:    pauseAfter,
 		checkInterval: cfg.CheckInterval,
 	}
 }
@@ -58,7 +66,7 @@ func (e *Engine) Update(idle time.Duration) UpdateResult {
 		return UpdateResult{State: StateIdle}
 	}
 
-	if idle >= e.checkInterval {
+	if idle >= e.pauseAfter {
 		remaining := e.remindAfter - e.accumulated
 		if remaining < 0 {
 			remaining = 0
