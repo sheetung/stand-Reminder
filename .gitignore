@@ -1,11 +1,12 @@
 ﻿.gocache/
 .gomodcache/
 .gopath/
+.codex/
 release/
 stand-reminder.exe
 config.json
 stats.json
-
+AGENTS.md
 stand-reminder.db
 stand-reminder.db-shm
 stand-reminder.db-wal

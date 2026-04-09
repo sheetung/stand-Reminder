@@ -330,6 +330,33 @@
     font-size: 14px;
     display: flex;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .stats-hover-label {
+    color: var(--muted);
+  }
+
+  .stats-hover-details {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .stats-hover-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+
+  .stats-hover-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
   }
 
   .stats-chart {
@@ -445,10 +472,10 @@
   }
 
   .chart-bar:hover .chart-column { transform: scaleX(1.06); }
-  .chart-segment.work { background: linear-gradient(180deg, #a855f7, #7c3aed); }
-  .chart-segment.break { background: linear-gradient(180deg, #fb7185, #f43f5e); }
-  .chart-segment.idle { background: linear-gradient(180deg, #cbd5e1, #94a3b8); }
-  .chart-segment.paused { background: linear-gradient(180deg, #fde68a, #f59e0b); }
+  .chart-segment.work { background: #5D10D8; }
+  .chart-segment.break { background: #F67A98; }
+  .chart-segment.idle { background: #A56BFF; }
+  .chart-segment.paused { background: #F3C64E; }
 
   .chart-label {
     font-size: 11px;
@@ -613,7 +640,7 @@
       en: '/locales/en.json',
     };
     const i18n = {};
-    const appVersion = 'v0.3.1';
+    const appVersion = 'v0.3.2';
     const repoURL = 'https://github.com/sheetung/stand-Reminder';
 
     let currentLang = 'zh';
@@ -794,7 +821,22 @@
         return;
       }
 
-      statsHoverInfo.textContent = `${bar.label} · ${t('statsWork')}: ${formatDuration(bar.work_seconds || 0)} · ${t('statsBreak')}: ${formatDuration(bar.break_seconds || 0)} · ${t('statsIdle')}: ${formatDuration(bar.idle_seconds || 0)} · ${t('statsPaused')}: ${formatDuration(bar.paused_seconds || 0)}`;
+      const colors = {
+        work: '#A56BFF',
+        break: '#F67A98',
+        idle: '#5D10D8',
+        paused: '#F3C64E',
+      };
+
+      statsHoverInfo.innerHTML = `
+        <span class="stats-hover-label">${bar.label}</span>
+        <span class="stats-hover-details">
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.work}"></span>${t('statsWork')}: ${formatDuration(bar.work_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.idle}"></span>${t('statsIdle')}: ${formatDuration(bar.idle_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.break}"></span>${t('statsBreak')}: ${formatDuration(bar.break_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.paused}"></span>${t('statsPaused')}: ${formatDuration(bar.paused_seconds || 0)}</span>
+        </span>
+      `;
     }
 
     function formatSlotTime(slotIndex) {
@@ -805,7 +847,7 @@
     }
 
     function buildTodaySegments(bars) {
-      const stateOrder = ['paused', 'break', 'work', 'idle'];
+      const stateOrder = ['paused', 'break', 'idle', 'work'];
       const stateLabelMap = {
         paused: t('statsPaused'),
         break: t('statsBreak'),
@@ -940,8 +982,8 @@
       const styleMap = {
         paused: { color: '#F3C64E' },
         break: { color: '#F67A98' },
-        work: { color: '#A56BFF' },
-        idle: { color: '#5D10D8' },
+        work: { color: '#5D10D8' },
+        idle: { color: '#A56BFF' },
       };
       const hoverRegions = [];
       const topForLevel = (level) => plotTop + level * yDis + radius;
@@ -1097,8 +1139,8 @@
 
         const segmentsForBar = [
           { name: 'work', value: workSeconds },
-          { name: 'break', value: breakSeconds },
           { name: 'idle', value: idleSeconds },
+          { name: 'break', value: breakSeconds },
           { name: 'paused', value: pausedSeconds },
         ];
 
