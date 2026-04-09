@@ -55,7 +55,14 @@ jobs:
         if: github.ref_type == 'tag'
         shell: pwsh
         run: |
-          Compress-Archive -Path "${{ steps.meta.outputs.exe_name }}", "README.md" -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
+          $bundleDir = "stand-Reminder"
+          if (Test-Path $bundleDir) {
+            Remove-Item -LiteralPath $bundleDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $bundleDir | Out-Null
+          Copy-Item -LiteralPath "${{ steps.meta.outputs.exe_name }}" -Destination (Join-Path $bundleDir "stand-reminder.exe")
+          Copy-Item -LiteralPath "README.md" -Destination (Join-Path $bundleDir "README.md")
+          Compress-Archive -Path $bundleDir -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
