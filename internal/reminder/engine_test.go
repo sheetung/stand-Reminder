@@ -1,4 +1,4 @@
-package reminder
+﻿package reminder
 
 import (
 	"testing"
@@ -9,7 +9,7 @@ func TestEngineAccumulatesWhileActive(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   15 * time.Second,
 		IdleReset:     10 * time.Second,
-		PauseAfter:    30 * time.Second,
+		PauseAfter:    60 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -25,9 +25,9 @@ func TestEngineAccumulatesWhileActive(t *testing.T) {
 
 func TestEngineResetsAfterIdleThreshold(t *testing.T) {
 	engine := NewEngine(Config{
-		RemindAfter:   30 * time.Second,
+		RemindAfter:   60 * time.Second,
 		IdleReset:     10 * time.Second,
-		PauseAfter:    30 * time.Second,
+		PauseAfter:    60 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -46,9 +46,9 @@ func TestEngineResetsAfterIdleThreshold(t *testing.T) {
 
 func TestEngineStaysActiveBeforePauseThreshold(t *testing.T) {
 	engine := NewEngine(Config{
-		RemindAfter:   30 * time.Second,
+		RemindAfter:   60 * time.Second,
 		IdleReset:     2 * time.Minute,
-		PauseAfter:    30 * time.Second,
+		PauseAfter:    60 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -66,14 +66,14 @@ func TestEngineStaysActiveBeforePauseThreshold(t *testing.T) {
 
 func TestEnginePausesAfterPauseThreshold(t *testing.T) {
 	engine := NewEngine(Config{
-		RemindAfter:   30 * time.Second,
+		RemindAfter:   60 * time.Second,
 		IdleReset:     2 * time.Minute,
-		PauseAfter:    30 * time.Second,
+		PauseAfter:    60 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
 	engine.Update(1 * time.Second)
-	result := engine.Update(35 * time.Second)
+	result := engine.Update(60 * time.Second)
 
 	if result.State != StatePaused {
 		t.Fatalf("expected paused state, got %s", result.State)
@@ -88,7 +88,7 @@ func TestEngineTriggersReminderAndRestartsCycle(t *testing.T) {
 	engine := NewEngine(Config{
 		RemindAfter:   10 * time.Second,
 		IdleReset:     20 * time.Second,
-		PauseAfter:    30 * time.Second,
+		PauseAfter:    60 * time.Second,
 		CheckInterval: 5 * time.Second,
 	})
 
@@ -108,3 +108,5 @@ func TestEngineTriggersReminderAndRestartsCycle(t *testing.T) {
 		t.Fatalf("expected new cycle to restart, got %s", next.Accumulated)
 	}
 }
+
+

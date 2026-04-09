@@ -1,4 +1,4 @@
-package reminder
+﻿package reminder
 
 import "time"
 
@@ -37,7 +37,7 @@ type Engine struct {
 func NewEngine(cfg Config) *Engine {
 	pauseAfter := cfg.PauseAfter
 	if pauseAfter <= 0 {
-		pauseAfter = 30 * time.Second
+		pauseAfter = 60 * time.Second
 	}
 
 	return &Engine{
@@ -100,3 +100,4 @@ func (e *Engine) Update(idle time.Duration) UpdateResult {
 		Remaining:   remaining,
 	}
 }
+

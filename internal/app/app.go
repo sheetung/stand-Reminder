@@ -1,4 +1,4 @@
-package app
+﻿package app
 
 import (
 	"log"
@@ -16,7 +16,7 @@ const (
 	statusManualPaused = "manual_paused"
 	statusBreakMode    = "break_mode"
 	breakDuration      = 10 * time.Minute
-	autoPauseThreshold = 30 * time.Second
+	autoPauseThreshold = 60 * time.Second
 )
 
 type Snapshot struct {
@@ -344,3 +344,4 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.state.NotificationMessage = cfg.NotificationMessage
 	a.state.Locale = a.locale
 }
+
