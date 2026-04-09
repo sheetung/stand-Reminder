@@ -23,6 +23,10 @@ type actionRequest struct {
 	Action string `json:"action"`
 }
 
+type localeRequest struct {
+	Locale string `json:"locale"`
+}
+
 func NewServer(application *app.App) *Server {
 	return &Server{app: application}
 }
@@ -33,6 +37,7 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
 	mux.HandleFunc("/locales/", s.handleLocale)
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/locale", s.handleLocalePreference)
 	mux.HandleFunc("/api/stats", s.handleStats)
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/test-notification", s.handleTestNotification)
@@ -95,6 +100,26 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, s.app.Snapshot())
+}
+
+func (s *Server) handleLocalePreference(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req localeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
+
+	if err := s.app.SetLocale(req.Locale); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]string{"locale": s.app.Locale()})
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {

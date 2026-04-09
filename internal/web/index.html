@@ -659,9 +659,26 @@
       return i18n[lang];
     }
 
+        function normalizeLang(locale) {
+      return String(locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh';
+    }
+
+    async function persistLanguage(lang) {
+      const response = await fetch('/api/locale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale: lang }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save locale');
+      }
+      return normalizeLang(data.locale);
+    }
+
     async function switchLanguage(lang) {
       await ensureLocale(lang);
-      currentLang = lang;
+      currentLang = await persistLanguage(lang);
       applyLanguage();
       if (formDirty) {
         setMessage(t('msgEditing'), 'warn');
@@ -1217,10 +1234,16 @@
       }
     });
 
-    async function boot() {
+        async function boot() {
       await Promise.all([ensureLocale('zh'), ensureLocale('en')]);
+      const response = await fetch('/api/status');
+      if (!response.ok) {
+        throw new Error('Failed to load status');
+      }
+      const data = await response.json();
+      currentLang = normalizeLang(data.locale);
       applyLanguage();
-      await refresh();
+      renderStatus(data);
       await refreshStats();
       setInterval(() => refresh().catch(() => {}), 2000);
       setInterval(updateBreakTimer, 1000);

@@ -16,6 +16,7 @@ const (
 	statusManualPaused = "manual_paused"
 	statusBreakMode    = "break_mode"
 	breakDuration      = 10 * time.Minute
+	autoPauseThreshold = 30 * time.Second
 )
 
 type Snapshot struct {
@@ -30,6 +31,7 @@ type Snapshot struct {
 	CheckIntervalSeconds   int    `json:"check_interval_seconds"`
 	NotificationTitle      string `json:"notification_title"`
 	NotificationMessage    string `json:"notification_message"`
+	Locale                 string `json:"locale"`
 	Paused                 bool   `json:"paused"`
 	OnBreak                bool   `json:"on_break"`
 	BreakEndsAt            string `json:"break_ends_at"`
@@ -43,6 +45,7 @@ type App struct {
 	notifier   *notify.WindowsNotifier
 	store      *stats.Store
 	engine     *reminder.Engine
+	locale     string
 	state      Snapshot
 	paused     bool
 	breakUntil time.Time
@@ -54,12 +57,18 @@ func New(dbPath string) (*App, error) {
 		return nil, err
 	}
 
+	locale, err := store.LoadLocale()
+	if err != nil {
+		return nil, err
+	}
+
 	n := notify.NewWindowsNotifier()
 	app := &App{
 		cfg:      cfg,
 		detector: activity.NewDetector(),
 		notifier: &n,
 		store:    store,
+		locale:   locale,
 	}
 	app.rebuildLocked(cfg)
 	app.resetStateLocked(string(reminder.StateIdle))
@@ -199,10 +208,32 @@ func (a *App) Run() {
 	}
 }
 
+func (a *App) Locale() string {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.locale
+}
+
 func (a *App) Snapshot() Snapshot {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
 	return a.state
+}
+
+func (a *App) SetLocale(locale string) error {
+	if err := a.store.SaveLocale(locale); err != nil {
+		return err
+	}
+
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if locale == "en" || locale == "en-US" {
+		a.locale = "en-US"
+	} else {
+		a.locale = "zh-CN"
+	}
+	a.state.Locale = a.locale
+	return nil
 }
 
 func (a *App) UpdateConfig(cfg config.Config) error {
@@ -295,6 +326,7 @@ func (a *App) resetStateLocked(status string) {
 	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
+	a.state.Locale = a.locale
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
 }
 
@@ -302,6 +334,7 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.engine = reminder.NewEngine(reminder.Config{
 		RemindAfter:   time.Duration(cfg.RemindAfterMinutes) * time.Minute,
 		IdleReset:     time.Duration(cfg.IdleResetMinutes) * time.Minute,
+		PauseAfter:    autoPauseThreshold,
 		CheckInterval: time.Duration(cfg.CheckIntervalSeconds) * time.Second,
 	})
 	a.state.RemindAfterMinutes = cfg.RemindAfterMinutes
@@ -309,4 +342,5 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.state.CheckIntervalSeconds = cfg.CheckIntervalSeconds
 	a.state.NotificationTitle = cfg.NotificationTitle
 	a.state.NotificationMessage = cfg.NotificationMessage
+	a.state.Locale = a.locale
 }

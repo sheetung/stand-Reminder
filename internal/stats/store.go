@@ -215,6 +215,35 @@ func (s *Store) LoadConfig() (config.Config, error) {
 	return cfg, nil
 }
 
+func (s *Store) LoadLocale() (string, error) {
+	row := s.db.QueryRow(`
+		SELECT locale
+		FROM user_profile
+		WHERE id = 1
+	`)
+
+	var locale string
+	if err := row.Scan(&locale); err != nil {
+		return "", fmt.Errorf("load locale from sqlite: %w", err)
+	}
+
+	return normalizeLocale(locale), nil
+}
+
+func (s *Store) SaveLocale(locale string) error {
+	canonical := normalizeLocale(locale)
+	_, err := s.db.Exec(`
+		UPDATE user_profile
+		SET locale = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = 1
+	`, canonical)
+	if err != nil {
+		return fmt.Errorf("save locale to sqlite: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Store) SaveConfig(cfg config.Config) error {
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -434,6 +463,15 @@ func dominantCategory(bar Bar) string {
 		}
 	}
 	return name
+}
+
+func normalizeLocale(locale string) string {
+	switch locale {
+	case "en", "en-US", "en-us":
+		return "en-US"
+	default:
+		return "zh-CN"
+	}
 }
 
 func normalizeRange(key string) string {
