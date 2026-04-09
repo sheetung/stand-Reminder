@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -21,6 +21,10 @@
     --bg2: #edf7f3;
     --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
     --radius: 24px;
+    --state-work: #5D10D8;
+    --state-break: #F67A98;
+    --state-idle: #A56BFF;
+    --state-paused: #F3C64E;
   }
 
   * { box-sizing: border-box; }
@@ -472,10 +476,10 @@
   }
 
   .chart-bar:hover .chart-column { transform: scaleX(1.06); }
-  .chart-segment.work { background: #5D10D8; }
-  .chart-segment.break { background: #F67A98; }
-  .chart-segment.idle { background: #A56BFF; }
-  .chart-segment.paused { background: #F3C64E; }
+  .chart-segment.work { background: var(--state-work); }
+  .chart-segment.break { background: var(--state-break); }
+  .chart-segment.idle { background: var(--state-idle); }
+  .chart-segment.paused { background: var(--state-paused); }
 
   .chart-label {
     font-size: 11px;
@@ -821,12 +825,7 @@
         return;
       }
 
-      const colors = {
-        work: '#A56BFF',
-        break: '#F67A98',
-        idle: '#5D10D8',
-        paused: '#F3C64E',
-      };
+      const colors = getStateColors();
 
       statsHoverInfo.innerHTML = `
         <span class="stats-hover-label">${bar.label}</span>
@@ -837,6 +836,16 @@
           <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.paused}"></span>${t('statsPaused')}: ${formatDuration(bar.paused_seconds || 0)}</span>
         </span>
       `;
+    }
+
+    function getStateColors() {
+      const styles = getComputedStyle(document.documentElement);
+      return {
+        work: styles.getPropertyValue('--state-work').trim(),
+        break: styles.getPropertyValue('--state-break').trim(),
+        idle: styles.getPropertyValue('--state-idle').trim(),
+        paused: styles.getPropertyValue('--state-paused').trim(),
+      };
     }
 
     function formatSlotTime(slotIndex) {
@@ -955,8 +964,8 @@
       const nonEmptyBars = bars.map((bar, index) => ({ index, total: Number(bar.total_seconds || 0) })).filter((bar) => bar.total > 0);
       const startLabel = document.createElement('div');
       const endLabel = document.createElement('div');
-      startLabel.innerHTML = `<div>${currentLang === 'zh' ? '开始' : 'Start'}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[0].index) : '00:00'}</strong>`;
-      endLabel.innerHTML = `<div>${currentLang === 'zh' ? '结束' : 'End'}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[nonEmptyBars.length - 1].index + 1) : '24:00'}</strong>`;
+      startLabel.innerHTML = `<div>${t('todayStart')}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[0].index) : '00:00'}</strong>`;
+      endLabel.innerHTML = `<div>${t('todayEnd')}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[nonEmptyBars.length - 1].index + 1) : '24:00'}</strong>`;
       meta.appendChild(startLabel);
       meta.appendChild(endLabel);
       statsDays.appendChild(meta);
@@ -979,12 +988,7 @@
       const yDis = plotHeight / 4;
       const radius = Math.min(12, yDis / 4);
       const xDis = width / bars.length;
-      const styleMap = {
-        paused: { color: '#F3C64E' },
-        break: { color: '#F67A98' },
-        work: { color: '#5D10D8' },
-        idle: { color: '#A56BFF' },
-      };
+      const styleMap = getStateColors();
       const hoverRegions = [];
       const topForLevel = (level) => plotTop + level * yDis + radius;
       const bottomForLevel = (level) => topForLevel(level) + yDis - 2 * radius;
@@ -994,7 +998,7 @@
         const endX = (segment.end + 1) * xDis;
         const startY = topForLevel(segment.level);
         const endY = bottomForLevel(segment.level);
-        const fill = (styleMap[segment.state] || styleMap.work).color;
+        const fill = styleMap[segment.state] || styleMap.work;
 
         ctx.save();
         const currentRadius = roundedRectPath(ctx, startX, startY, endX, endY, radius);
@@ -1023,7 +1027,7 @@
         const nextEndX = (nextSegment.end + 1) * xDis;
         const nextStartY = topForLevel(nextSegment.level);
         const nextEndY = bottomForLevel(nextSegment.level);
-        const nextColor = (styleMap[nextSegment.state] || styleMap.work).color;
+        const nextColor = styleMap[nextSegment.state] || styleMap.work;
         const nextRadius = Math.max(0, Math.min(radius, (nextEndX - nextStartX) / 2, (nextEndY - nextStartY) / 2));
 
         const dir = segment.level > nextSegment.level;
@@ -1296,6 +1300,9 @@
   </script>
 </body>
 </html>
+
+
+
 
 
 
