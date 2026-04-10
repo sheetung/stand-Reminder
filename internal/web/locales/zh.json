@@ -66,7 +66,9 @@
   "msgRefreshed": "状态已刷新。",
   "msgEditing": "你有未保存的修改，状态会继续刷新，但表单不会被覆盖。",
   "msgStatsFailed": "统计加载失败。",
-  "breakDone": "休息已结束，请手动点击“开始 / 恢复”继续计时。"
+  "breakDone": "休息已结束，请手动点击“开始 / 恢复”继续计时。",
+  "trayOpenConsole": "打开控制中心",
+  "trayLaunchAtStartup": "开机自启",
+  "trayExit": "退出"
 }
-
 

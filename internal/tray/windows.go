@@ -6,16 +6,20 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 	"unsafe"
 
 	appassets "stand-reminder/assets"
+	webui "stand-reminder/internal/web"
+
+	"golang.org/x/sys/windows/registry"
 )
 
 var (
 	user32                     = syscall.NewLazyDLL("user32.dll")
-	kernel32                   = syscall.NewLazyDLL("kernel32.dll")
 	shell32                    = syscall.NewLazyDLL("shell32.dll")
 	procRegisterClassExW       = user32.NewProc("RegisterClassExW")
 	procRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
@@ -62,7 +66,6 @@ const (
 	cwUseDefault = 0x80000000
 
 	nimAdd     = 0x00000000
-	nimModify  = 0x00000001
 	nimDelete  = 0x00000002
 	nimSetVer  = 0x00000004
 	nifMessage = 0x00000001
@@ -71,7 +74,9 @@ const (
 
 	notifVersion4 = 4
 
-	mfString = 0x00000000
+	mfString    = 0x00000000
+	mfChecked   = 0x00000008
+	mfSeparator = 0x00000800
 
 	tpmBottomAlign = 0x0020
 	tpmLeftAlign   = 0x0000
@@ -79,8 +84,14 @@ const (
 )
 
 const (
-	menuOpen = 1001
-	menuExit = 1002
+	menuOpen      = 1001
+	menuAutoStart = 1002
+	menuExit      = 1003
+)
+
+const (
+	runKeyPath   = `Software\Microsoft\Windows\CurrentVersion\Run`
+	runValueName = "StandReminder"
 )
 
 type point struct {
@@ -133,29 +144,27 @@ type notifyIconData struct {
 
 var (
 	trayURL               string
-	trayWindow            uintptr
+	trayLocale            func() string
 	trayIcon              uintptr
 	taskbarCreatedMessage uint32
 	trayProc              = syscall.NewCallback(wndProc)
 	classNamePtr          = syscall.StringToUTF16Ptr("StandReminderTrayWindow")
 )
 
-func Run(url string) error {
+func Run(url string, localeProvider func() string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	trayURL = url
+	trayLocale = localeProvider
 	trayIcon = loadTrayIcon()
 	taskbarCreatedMessage = registerTaskbarCreatedMessage()
 
-	instance := uintptr(0)
 	cursor, _, _ := procLoadCursorW.Call(0, idcArrow)
-
 	wc := wndClassEx{
 		Size:      uint32(unsafe.Sizeof(wndClassEx{})),
 		Style:     csHRedraw | csVRedraw,
 		WndProc:   trayProc,
-		Instance:  instance,
 		Icon:      trayIcon,
 		Cursor:    cursor,
 		ClassName: classNamePtr,
@@ -178,13 +187,12 @@ func Run(url string) error {
 		cwUseDefault,
 		0,
 		0,
-		instance,
+		0,
 		0,
 	)
 	if hwnd == 0 {
 		return fmt.Errorf("CreateWindowExW failed: %w", err)
 	}
-	trayWindow = hwnd
 
 	if err := addTrayIcon(hwnd, trayIcon); err != nil {
 		return err
@@ -225,6 +233,8 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 		switch uint32(wParam & 0xffff) {
 		case menuOpen:
 			openBrowser(trayURL)
+		case menuAutoStart:
+			_ = toggleAutoStart()
 		case menuExit:
 			deleteTrayIcon(hwnd)
 			procDestroyWindow.Call(hwnd)
@@ -274,13 +284,103 @@ func showMenu(hwnd uintptr) {
 	}
 	defer procDestroyMenu.Call(menu)
 
-	procAppendMenuW.Call(menu, mfString, menuOpen, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Open Console"))))
-	procAppendMenuW.Call(menu, mfString, menuExit, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr("Exit"))))
+	locale := currentLocale()
+	openLabel := webui.LocaleText(locale, "trayOpenConsole", "Open Control Center")
+	autoStartLabel := webui.LocaleText(locale, "trayLaunchAtStartup", "Launch at Startup")
+	exitLabel := webui.LocaleText(locale, "trayExit", "Exit")
+
+	procAppendMenuW.Call(menu, mfString, menuOpen, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(openLabel))))
+
+	autoStartFlags := uintptr(mfString)
+	enabled, err := isAutoStartEnabled()
+	if err == nil && enabled {
+		autoStartFlags |= mfChecked
+	}
+	procAppendMenuW.Call(menu, autoStartFlags, menuAutoStart, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(autoStartLabel))))
+	procAppendMenuW.Call(menu, mfSeparator, 0, 0)
+	procAppendMenuW.Call(menu, mfString, menuExit, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(exitLabel))))
 
 	var pt point
 	procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	procSetForegroundWindow.Call(hwnd)
 	procTrackPopupMenu.Call(menu, tpmBottomAlign|tpmLeftAlign|tpmRightButton, uintptr(pt.X), uintptr(pt.Y), 0, hwnd, 0)
+}
+
+func currentLocale() string {
+	if trayLocale == nil {
+		return "zh-CN"
+	}
+	locale := trayLocale()
+	if locale == "en" || locale == "en-US" {
+		return "en-US"
+	}
+	return "zh-CN"
+}
+
+func toggleAutoStart() error {
+	enabled, err := isAutoStartEnabled()
+	if err != nil {
+		return err
+	}
+	if enabled {
+		return disableAutoStart()
+	}
+	return enableAutoStart()
+}
+
+func isAutoStartEnabled() (bool, error) {
+	key, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.QUERY_VALUE)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return false, nil
+		}
+		return false, err
+	}
+	defer key.Close()
+
+	value, _, err := key.GetStringValue(runValueName)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return false, nil
+		}
+		return false, err
+	}
+	return value != "", nil
+}
+
+func enableAutoStart() error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	exePath, err = filepath.Abs(exePath)
+	if err != nil {
+		return err
+	}
+
+	key, _, err := registry.CreateKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE)
+	if err != nil {
+		return err
+	}
+	defer key.Close()
+
+	return key.SetStringValue(runValueName, strconv.Quote(exePath))
+}
+
+func disableAutoStart() error {
+	key, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE)
+	if err != nil {
+		if err == registry.ErrNotExist {
+			return nil
+		}
+		return err
+	}
+	defer key.Close()
+
+	if err := key.DeleteValue(runValueName); err != nil && err != registry.ErrNotExist {
+		return err
+	}
+	return nil
 }
 
 func openBrowser(url string) {

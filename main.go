@@ -45,7 +45,7 @@ func main() {
 		}
 	}()
 
-	if err := tray.Run(controlCenterURL); err != nil {
+	if err := tray.Run(controlCenterURL, application.Locale); err != nil {
 		log.Fatalf("tray failed: %v", err)
 	}
 }

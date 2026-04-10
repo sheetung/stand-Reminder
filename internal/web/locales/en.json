@@ -66,5 +66,9 @@
   "msgRefreshed": "Status refreshed.",
   "msgEditing": "You have unsaved changes. Live status still refreshes, but the form will not be overwritten.",
   "msgStatsFailed": "Failed to load statistics.",
-  "breakDone": "Break finished. Click Start / Resume when you want to continue counting."
+  "breakDone": "Break finished. Click Start / Resume when you want to continue counting.",
+  "trayOpenConsole": "Open Control Center",
+  "trayLaunchAtStartup": "Launch at Startup",
+  "trayExit": "Exit"
 }
+
