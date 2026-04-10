@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -345,15 +345,20 @@ func isAutoStartEnabled() (bool, error) {
 		}
 		return false, err
 	}
-	return value != "", nil
+
+	current, currentErr := currentExecutablePath()
+	if currentErr != nil {
+		return false, currentErr
+	}
+	stored := normalizeRunValue(value)
+	if stored == "" {
+		return false, nil
+	}
+	return stored == current, nil
 }
 
 func enableAutoStart() error {
-	exePath, err := os.Executable()
-	if err != nil {
-		return err
-	}
-	exePath, err = filepath.Abs(exePath)
+	exePath, err := currentExecutablePath()
 	if err != nil {
 		return err
 	}
@@ -364,7 +369,22 @@ func enableAutoStart() error {
 	}
 	defer key.Close()
 
-	return key.SetStringValue(runValueName, strconv.Quote(exePath))
+	return key.SetStringValue(runValueName, fmt.Sprintf("\"%s\"", exePath))
+}
+
+func currentExecutablePath() (string, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Abs(exePath)
+}
+
+func normalizeRunValue(value string) string {
+	value = strings.TrimSpace(value)
+	value = strings.Trim(value, "\"")
+	value = strings.ReplaceAll(value, "\\\\", "\\")
+	return value
 }
 
 func disableAutoStart() error {
