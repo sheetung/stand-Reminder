@@ -1,4 +1,4 @@
-﻿package app
+package app
 
 import (
 	"log"
@@ -23,7 +23,6 @@ type Snapshot struct {
 	Status                 string `json:"status"`
 	IdleSeconds            int64  `json:"idle_seconds"`
 	IdleAccumulatedSeconds int64  `json:"idle_accumulated_seconds"`
-	MediaPlaying           bool   `json:"media_playing"`
 	AccumulatedSeconds     int64  `json:"accumulated_seconds"`
 	RemainingSeconds       int64  `json:"remaining_seconds"`
 	RemindAfterMinutes     int    `json:"remind_after_minutes"`
@@ -103,7 +102,6 @@ func (a *App) Run() {
 				a.state.Paused = false
 				a.state.OnBreak = true
 				a.state.BreakEndsAt = breakUntil.Format(time.RFC3339)
-				a.state.MediaPlaying = false
 				a.state.UpdatedAt = now.Format(time.RFC3339)
 				a.mu.Unlock()
 				if err := a.store.AddDuration(now, stats.CategoryBreak, interval); err != nil {
@@ -129,7 +127,6 @@ func (a *App) Run() {
 			a.state.Paused = true
 			a.state.OnBreak = false
 			a.state.BreakEndsAt = ""
-			a.state.MediaPlaying = false
 			a.state.UpdatedAt = now.Format(time.RFC3339)
 			a.mu.Unlock()
 			if err := a.store.AddDuration(now, stats.CategoryPaused, interval); err != nil {
@@ -146,25 +143,14 @@ func (a *App) Run() {
 			continue
 		}
 
-		mediaPlaying, err := a.detector.MediaPlaying()
-		if err != nil {
-			log.Printf("failed to read media playback state: %v", err)
-		}
-
-		effectiveIdle := idle
-		if mediaPlaying {
-			effectiveIdle = 0
-		}
-
-		result := engine.Update(effectiveIdle)
+		result := engine.Update(idle)
 
 		a.mu.Lock()
 		a.state.Status = string(result.State)
 		a.state.Paused = false
 		a.state.OnBreak = false
 		a.state.BreakEndsAt = ""
-		a.state.IdleSeconds = int64(effectiveIdle / time.Second)
-		a.state.MediaPlaying = mediaPlaying
+		a.state.IdleSeconds = int64(idle / time.Second)
 		a.state.AccumulatedSeconds = int64(result.Accumulated / time.Second)
 		if result.State == reminder.StatePaused || result.State == reminder.StateIdle || result.State == reminder.StateIdleReset {
 			a.state.IdleAccumulatedSeconds += int64(interval / time.Second)
@@ -198,7 +184,7 @@ func (a *App) Run() {
 				log.Printf("failed to send notification: %v", err)
 			}
 		case reminder.StateIdleReset:
-			log.Printf("idle reset: idle=%s previous_accumulated=%s", effectiveIdle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
+			log.Printf("idle reset: idle=%s previous_accumulated=%s", idle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
 			if err := a.store.AddIdleReset(now); err != nil {
 				log.Printf("failed to update idle reset stats: %v", err)
 			}
@@ -277,7 +263,6 @@ func (a *App) Pause() Snapshot {
 	a.state.Paused = true
 	a.state.OnBreak = false
 	a.state.BreakEndsAt = ""
-	a.state.MediaPlaying = false
 	a.state.Status = statusManualPaused
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
 	return a.state
@@ -306,7 +291,6 @@ func (a *App) StartBreak() Snapshot {
 	a.state.BreakEndsAt = a.breakUntil.Format(time.RFC3339)
 	a.state.IdleSeconds = 0
 	a.state.IdleAccumulatedSeconds = 0
-	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
 	a.state.UpdatedAt = now.Format(time.RFC3339)
@@ -323,7 +307,6 @@ func (a *App) resetStateLocked(status string) {
 	a.state.BreakEndsAt = ""
 	a.state.IdleSeconds = 0
 	a.state.IdleAccumulatedSeconds = 0
-	a.state.MediaPlaying = false
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
 	a.state.Locale = a.locale
@@ -344,4 +327,3 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.state.NotificationMessage = cfg.NotificationMessage
 	a.state.Locale = a.locale
 }
-

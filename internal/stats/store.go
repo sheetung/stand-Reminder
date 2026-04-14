@@ -267,6 +267,10 @@ func (s *Store) SaveConfig(cfg config.Config) error {
 }
 
 func (s *Store) AddDuration(at time.Time, category string, duration time.Duration) error {
+	return s.AddDurationWithSource(at, category, "system", duration)
+}
+
+func (s *Store) AddDurationWithSource(at time.Time, category, source string, duration time.Duration) error {
 	seconds := int64(math.Round(duration.Seconds()))
 	if seconds <= 0 {
 		return nil
@@ -284,7 +288,7 @@ func (s *Store) AddDuration(at time.Time, category string, duration time.Duratio
 	}
 	defer rollback(tx)
 
-	if err := s.appendOrMergeSessionTx(tx, category, "system", start, end); err != nil {
+	if err := s.appendOrMergeSessionTx(tx, category, source, start, end); err != nil {
 		return err
 	}
 
@@ -383,7 +387,7 @@ func buildTodayBars(dayStart time.Time, sessions []sessionRow) []Bar {
 			chunkEnd := minTime(finish, slotEnd)
 			seconds := int64(chunkEnd.Sub(current) / time.Second)
 			if seconds > 0 {
-				applyBarSeconds(&bars[slotIndex], session.State, seconds)
+				applyBarSeconds(&bars[slotIndex], session.State, session.Source, seconds)
 			}
 			current = chunkEnd
 		}
@@ -417,7 +421,7 @@ func buildDayBars(start time.Time, daysCount int, sessions []sessionRow) []Bar {
 			chunkEnd := minTime(finish, dayEnd)
 			seconds := int64(chunkEnd.Sub(current) / time.Second)
 			if seconds > 0 {
-				applyBarSeconds(&bars[index], session.State, seconds)
+				applyBarSeconds(&bars[index], session.State, session.Source, seconds)
 			}
 			current = chunkEnd
 		}
@@ -431,7 +435,7 @@ func buildDayBars(start time.Time, daysCount int, sessions []sessionRow) []Bar {
 	return bars
 }
 
-func applyBarSeconds(bar *Bar, category string, seconds int64) {
+func applyBarSeconds(bar *Bar, category, source string, seconds int64) {
 	switch category {
 	case CategoryWork:
 		bar.WorkSeconds += seconds

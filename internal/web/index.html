@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
@@ -538,7 +538,7 @@
           <div class="toolbar">
             <div class="eyebrow"><span id="eyebrowName"></span>&nbsp;<a id="eyebrowVersion" href="https://github.com/sheetung/stand-Reminder" target="_blank" rel="noreferrer"></a></div>
             <div class="lang-switch">
-              <button id="langZh" class="active" type="button">中文</button>
+              <button id="langZh" class="active" type="button">涓枃</button>
               <button id="langEn" type="button">EN</button>
             </div>
           </div>
@@ -573,7 +573,6 @@
             <div class="metric"><span data-i18n="metricRemaining"></span><strong id="remainingValue">--</strong></div>
             <div class="metric"><span data-i18n="metricAccumulated"></span><strong id="accumulatedValue">--</strong></div>
             <div class="metric"><span data-i18n="metricIdleAccumulated"></span><strong id="idleValue">--</strong></div>
-            <div class="metric"><span data-i18n="metricMedia"></span><strong id="mediaValue">--</strong></div>
           </div>
         </article>
       </section>
@@ -798,7 +797,6 @@
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
       document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('idleValue').textContent = formatDuration(data.idle_accumulated_seconds);
-      document.getElementById('mediaValue').textContent = data.media_playing ? t('mediaPlaying') : t('mediaStopped');
 
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);
@@ -860,8 +858,8 @@
       const stateLabelMap = {
         paused: t('statsPaused'),
         break: t('statsBreak'),
-        work: t('statsWork'),
         idle: t('statsIdle'),
+        work: t('statsWork'),
       };
 
       const segments = [];
@@ -923,9 +921,18 @@
     }
 
     function showTodayTooltip(tooltip, segment, event, bounds, color) {
+      const colors = getStateColors();
+      const details = [
+        { key: 'work', label: t('statsWork'), seconds: segment.work_seconds, color: colors.work },
+        { key: 'break', label: t('statsBreak'), seconds: segment.break_seconds, color: colors.break },
+        { key: 'idle', label: t('statsIdle'), seconds: segment.idle_seconds, color: colors.idle },
+        { key: 'paused', label: t('statsPaused'), seconds: segment.paused_seconds, color: colors.paused },
+      ].filter((item) => item.seconds > 0);
+
       tooltip.innerHTML = `
         <div class="today-floating-tooltip-title">${segment.label}</div>
         <div class="today-floating-tooltip-row"><span class="today-floating-tooltip-dot" style="background:${color}"></span><span>${formatSlotTime(segment.start)} - ${formatSlotTime(segment.end + 1)}</span></div>
+        ${details.map((item) => `<div class="today-floating-tooltip-row"><span class="today-floating-tooltip-dot" style="background:${item.color}"></span><span>${item.label}: ${formatDuration(item.seconds)}</span></div>`).join('')}
       `;
       tooltip.classList.add('visible');
       const tooltipRect = tooltip.getBoundingClientRect();
@@ -985,7 +992,8 @@
       const axisXHeight = 24;
       const plotTop = 16;
       const plotHeight = height - plotTop - axisXHeight;
-      const yDis = plotHeight / 4;
+      const levelCount = Math.max(1, Math.max(...segments.map((segment) => segment.level)) + 1);
+      const yDis = plotHeight / levelCount;
       const radius = Math.min(12, yDis / 4);
       const xDis = width / bars.length;
       const styleMap = getStateColors();
