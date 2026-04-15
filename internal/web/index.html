@@ -506,6 +506,17 @@
     }
   }
 
+  .hidden {
+    display: none !important;
+  }
+
+  #eyebrowVersion.has-update {
+    text-decoration: underline;
+    text-decoration-color: #3b82f6;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 2px;
+  }
+
   @media (max-width: 860px) {
     .shell {
       width: min(100% - 20px, 1160px);
@@ -538,7 +549,7 @@
           <div class="toolbar">
             <div class="eyebrow"><span id="eyebrowName"></span>&nbsp;<a id="eyebrowVersion" href="https://github.com/sheetung/stand-Reminder" target="_blank" rel="noreferrer"></a></div>
             <div class="lang-switch">
-              <button id="langZh" class="active" type="button">涓枃</button>
+              <button id="langZh" class="active" type="button">中文</button>
               <button id="langEn" type="button">EN</button>
             </div>
           </div>
@@ -643,7 +654,7 @@
       en: '/locales/en.json',
     };
     const i18n = {};
-    const appVersion = 'v0.5.2';
+    let appVersion = 'v0.5.2'; // Default fallback
     const repoURL = 'https://github.com/sheetung/stand-Reminder';
 
     let currentLang = 'zh';
@@ -797,6 +808,12 @@
       document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
       document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
       document.getElementById('idleValue').textContent = formatDuration(data.idle_accumulated_seconds);
+
+      // Update app version from API response
+      if (data.version) {
+        appVersion = data.version;
+        eyebrowVersion.textContent = appVersion;
+      }
 
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);
@@ -1298,6 +1315,12 @@
       currentLang = normalizeLang(data.locale);
       applyLanguage();
       renderStatus(data);
+      
+      // Check for update only once at startup
+      if (data.has_update) {
+        eyebrowVersion.classList.add('has-update');
+      }
+      
       await refreshStats();
       setInterval(() => refresh().catch(() => {}), 2000);
       setInterval(updateBreakTimer, 1000);

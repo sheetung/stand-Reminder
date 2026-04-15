@@ -10,6 +10,7 @@ import (
 	"stand-reminder/internal/notify"
 	"stand-reminder/internal/reminder"
 	"stand-reminder/internal/stats"
+	"stand-reminder/internal/version"
 )
 
 const (
@@ -20,6 +21,10 @@ const (
 )
 
 type Snapshot struct {
+	Version                string `json:"version"`
+	HasUpdate              bool   `json:"has_update"`
+	LatestVersion          string `json:"latest_version"`
+	ReleaseURL             string `json:"release_url"`
 	Status                 string `json:"status"`
 	IdleSeconds            int64  `json:"idle_seconds"`
 	IdleAccumulatedSeconds int64  `json:"idle_accumulated_seconds"`
@@ -48,9 +53,10 @@ type App struct {
 	state      Snapshot
 	paused     bool
 	breakUntil time.Time
+	updateInfo version.UpdateInfo // Latest version information
 }
 
-func New(dbPath string) (*App, error) {
+func New(dbPath string, currentVersion string) (*App, error) {
 	store, cfg, err := stats.Open(dbPath)
 	if err != nil {
 		return nil, err
@@ -71,6 +77,19 @@ func New(dbPath string) (*App, error) {
 	}
 	app.rebuildLocked(cfg)
 	app.resetStateLocked(string(reminder.StateIdle))
+	
+	// Initialize version info (async check for updates)
+	go func() {
+		updateInfo := version.CheckUpdate(currentVersion)
+		app.mu.Lock()
+		app.updateInfo = updateInfo
+		app.state.Version = currentVersion
+		app.state.HasUpdate = updateInfo.HasUpdate
+		app.state.LatestVersion = updateInfo.LatestVersion
+		app.state.ReleaseURL = updateInfo.ReleaseURL
+		app.mu.Unlock()
+	}()
+	
 	return app, nil
 }
 

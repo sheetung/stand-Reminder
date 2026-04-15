@@ -10,7 +10,12 @@ import (
 	webui "stand-reminder/internal/web"
 )
 
-const webAddress = "127.0.0.1:47831"
+const (
+	webAddress = "127.0.0.1:47831"
+	// CurrentVersion is the application version
+	// This is compared with the latest GitHub release to check for updates
+	CurrentVersion = "v0.5.2"
+)
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
@@ -22,7 +27,7 @@ func main() {
 	exeDir := filepath.Dir(exePath)
 	dbPath := filepath.Join(exeDir, "stand-reminder.db")
 
-	application, err := app.New(dbPath)
+	application, err := app.New(dbPath, CurrentVersion)
 	if err != nil {
 		log.Fatalf("failed to start app: %v", err)
 	}

@@ -1,4 +1,4 @@
-name: build-windows
+name: build-windows-with-release-notes
 
 on:
   push:
@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以便生成 changelog
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -44,19 +46,8 @@ jobs:
           "exe_name=stand-reminder.exe" >> $env:GITHUB_OUTPUT
           "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
 
-      - name: Update version in source code
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        run: |
-          $version = '${{ steps.meta.outputs.version }}'
-          $mainGoPath = 'main.go'
-          $content = Get-Content $mainGoPath -Raw
-          $updated = $content -replace 'CurrentVersion = "v[\d\.]+"', "CurrentVersion = `"$version`""
-          Set-Content $mainGoPath -Value $updated
-          Write-Host "Updated CurrentVersion to: $version"
-
       - name: Build executable
-        run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
+        run: go build -ldflags="-H windowsgui -X main.Version=${{ steps.meta.outputs.version }}" -o "${{ steps.meta.outputs.exe_name }}" .
 
       - name: Embed application icon
         shell: pwsh
@@ -84,45 +75,13 @@ jobs:
             ${{ steps.meta.outputs.zip_name }}
           if-no-files-found: ignore
 
-      - name: Generate changelog
-        if: github.ref_type == 'tag'
-        id: changelog
-        shell: pwsh
-        run: |
-          # Get commits since last tag
-          $currentTag = '${{ github.ref_name }}'
-          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null || 'HEAD~20'
-          
-          $commits = git log "$previousTag..$currentTag" --oneline --pretty=format:"- %s"
-          $changelog = @"
-          ## 更新内容
-          
-          $commits
-          "@
-          
-          # Save to file for later use
-          $changelog | Set-Content -Path "CHANGELOG.tmp" -Encoding UTF8
-          
-          # Also output for logging
-          Write-Host "Changelog:"
-          Write-Host $changelog
-
-      - name: Commit updated version
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add main.go
-          git commit -m "chore: update version to ${{ github.ref_name }}" || echo "No changes to commit"
-          git push
-
-      - name: Publish release
+      # 方案1: 自动生成（最简单）
+      - name: Publish release - Auto Generate
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Stand Reminder ${{ github.ref_name }}
-          body_path: CHANGELOG.tmp
+          generate_release_notes: true  # GitHub 自动从提交历史生成
           files: |
             ${{ steps.meta.outputs.zip_name }}
