@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -43,17 +45,6 @@ jobs:
           "version=$version" >> $env:GITHUB_OUTPUT
           "exe_name=stand-reminder.exe" >> $env:GITHUB_OUTPUT
           "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
-
-      - name: Update version in source code
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        run: |
-          $version = '${{ steps.meta.outputs.version }}'
-          $mainGoPath = 'main.go'
-          $content = Get-Content $mainGoPath -Raw
-          $updated = $content -replace 'CurrentVersion = "v[\d\.]+"', "CurrentVersion = `"$version`""
-          Set-Content $mainGoPath -Value $updated
-          Write-Host "Updated CurrentVersion to: $version"
 
       - name: Build executable
         run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
@@ -89,11 +80,23 @@ jobs:
         id: changelog
         shell: pwsh
         run: |
-          # Get commits since last tag
           $currentTag = '${{ github.ref_name }}'
-          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null || 'HEAD~20'
           
-          $commits = git log "$previousTag..$currentTag" --oneline --pretty=format:"- %s"
+          # Try to find previous tag, fallback to showing recent commits
+          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+          
+          if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
+            # No previous tag, get commits from start or past 20 commits
+            $commits = git log --oneline --pretty=format:"- %s" 2>$null | Select-Object -First 20
+          } else {
+            # Get commits between tags
+            $commits = git log "$previousTag..$currentTag" --oneline --pretty=format:"- %s" 2>$null
+          }
+          
+          if (-not $commits) {
+            $commits = "Initial release"
+          }
+          
           $changelog = @"
           ## 更新内容
           
@@ -103,19 +106,8 @@ jobs:
           # Save to file for later use
           $changelog | Set-Content -Path "CHANGELOG.tmp" -Encoding UTF8
           
-          # Also output for logging
           Write-Host "Changelog:"
           Write-Host $changelog
-
-      - name: Commit updated version
-        if: github.ref_type == 'tag'
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add main.go
-          git commit -m "chore: update version to ${{ github.ref_name }}" || echo "No changes to commit"
-          git push
 
       - name: Publish release
         if: github.ref_type == 'tag'
