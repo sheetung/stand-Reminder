@@ -223,7 +223,7 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 	case wmTrayCallback:
 		eventCode := uint32(lParam & 0xffff)
 		switch eventCode {
-		case wmLButtonUp, wmLButtonDblClk, ninSelect, ninKeySelect:
+		case wmLButtonDblClk, ninSelect, ninKeySelect:
 			openBrowser(trayURL)
 		case wmRButtonUp, wmContextMenu:
 			showMenu(hwnd)
