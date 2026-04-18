@@ -72,13 +72,36 @@ jobs:
             ${{ steps.meta.outputs.zip_name }}
           if-no-files-found: ignore
 
-      # 方案1: 自动生成（最简单）
-      - name: Publish release - Auto Generate
+      - name: Generate changelog
+        if: github.ref_type == 'tag'
+        id: changelog
+        shell: pwsh
+        run: |
+          $currentTag = '${{ github.ref_name }}'
+          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+          
+          if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
+            $commits = git log --pretty=format:"- %s" --max-count=20 2>$null
+          } else {
+            $commits = git log "$previousTag..$currentTag" --pretty=format:"- %s" 2>$null
+          }
+          
+          if (-not $commits) {
+            $commits = "Initial release"
+          }
+          
+          @"
+          ## 更新内容
+          
+          $commits
+          "@ | Set-Content -Path "CHANGELOG.tmp"
+
+      - name: Publish release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Stand Reminder ${{ github.ref_name }}
-          generate_release_notes: true  # GitHub 自动从提交历史生成
+          body_path: CHANGELOG.tmp
           files: |
             ${{ steps.meta.outputs.zip_name }}
