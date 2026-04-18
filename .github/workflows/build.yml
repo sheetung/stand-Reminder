@@ -1,4 +1,4 @@
-name: build-windows
+name: build-windows-with-release-notes
 
 on:
   push:
@@ -17,7 +17,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # 获取完整历史以便生成 changelog
 
       - name: Setup Go
         uses: actions/setup-go@v5
@@ -44,7 +44,7 @@ jobs:
           "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
 
       - name: Build executable
-        run: go build -ldflags="-H windowsgui" -o "${{ steps.meta.outputs.exe_name }}" .
+        run: go build -ldflags="-H windowsgui -X main.Version=${{ steps.meta.outputs.version }}" -o "${{ steps.meta.outputs.exe_name }}" .
 
       - name: Embed application icon
         shell: pwsh
@@ -72,46 +72,13 @@ jobs:
             ${{ steps.meta.outputs.zip_name }}
           if-no-files-found: ignore
 
-      - name: Generate changelog
-        if: github.ref_type == 'tag'
-        id: changelog
-        shell: pwsh
-        run: |
-          $currentTag = '${{ github.ref_name }}'
-          
-          # Try to find previous tag, fallback to showing recent commits
-          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
-          
-          if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
-            # No previous tag, get commits from start or past 20 commits
-            $commits = git log --oneline --pretty=format:"- %s" 2>$null | Select-Object -First 20
-          } else {
-            # Get commits between tags
-            $commits = git log "$previousTag..$currentTag" --oneline --pretty=format:"- %s" 2>$null
-          }
-          
-          if (-not $commits) {
-            $commits = "Initial release"
-          }
-          
-          $changelog = @"
-          ## 更新内容
-          
-          $commits
-          "@
-          
-          # Save to file for later use
-          $changelog | Set-Content -Path "CHANGELOG.tmp" -Encoding UTF8
-          
-          Write-Host "Changelog:"
-          Write-Host $changelog
-
-      - name: Publish release
+      # 方案1: 自动生成（最简单）
+      - name: Publish release - Auto Generate
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Stand Reminder ${{ github.ref_name }}
-          body_path: CHANGELOG.tmp
+          generate_release_notes: true  # GitHub 自动从提交历史生成
           files: |
             ${{ steps.meta.outputs.zip_name }}
