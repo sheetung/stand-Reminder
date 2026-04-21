@@ -75,9 +75,11 @@ go build -ldflags='-H windowsgui' -o stand-reminder.exe .
 
 ## 致谢
 
-今天统计图的 UI 实现思路参考了 Mizuki 的文章，感谢原作者提供的设计与实现分享。
+- 今天统计图的 UI 实现思路参考了 Mizuki 的文章，感谢原作者提供的设计与实现分享。
+  - 作者：Mizuki 链接：https://www.cnblogs.com/mizuki-vone/p/17752988.html
 
-- 作者：Mizuki 链接：https://www.cnblogs.com/mizuki-vone/p/17752988.html
+- 2048 游戏功能基于 gabrielecirulli 的开源项目，感谢原作者的创意和实现。
+  - 项目地址：https://github.com/gabrielecirulli/2048
 
 ## 声明
 
