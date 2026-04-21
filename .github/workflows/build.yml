@@ -1,0 +1,107 @@
+name: build-windows-with-release-notes
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史以便生成 changelog
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.1'
+
+      - name: Download dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./...
+
+      - name: Set build metadata
+        id: meta
+        shell: pwsh
+        run: |
+          if ('${{ github.ref_type }}' -eq 'tag') {
+            $version = '${{ github.ref_name }}'
+          } else {
+            $version = 'dev'
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "exe_name=stand-reminder.exe" >> $env:GITHUB_OUTPUT
+          "zip_name=stand-reminder-$version-windows.zip" >> $env:GITHUB_OUTPUT
+
+      - name: Build executable
+        run: go build -ldflags="-H windowsgui -X main.Version=${{ steps.meta.outputs.version }}" -o "${{ steps.meta.outputs.exe_name }}" .
+
+      - name: Embed application icon
+        shell: pwsh
+        run: .\scripts\embed-icon.ps1 -ExePath "${{ steps.meta.outputs.exe_name }}" -IconPath ".\assets\stand-reminder.ico"
+
+      - name: Prepare release bundle
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $bundleDir = "stand-Reminder"
+          if (Test-Path $bundleDir) {
+            Remove-Item -LiteralPath $bundleDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $bundleDir | Out-Null
+          Copy-Item -LiteralPath "${{ steps.meta.outputs.exe_name }}" -Destination (Join-Path $bundleDir "stand-reminder.exe")
+          Copy-Item -LiteralPath "README.md" -Destination (Join-Path $bundleDir "README.md")
+          Compress-Archive -Path $bundleDir -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stand-reminder-${{ steps.meta.outputs.version }}-windows
+          path: |
+            ${{ steps.meta.outputs.exe_name }}
+            ${{ steps.meta.outputs.zip_name }}
+          if-no-files-found: ignore
+
+      - name: Generate changelog
+        if: github.ref_type == 'tag'
+        id: changelog
+        shell: pwsh
+        run: |
+          $currentTag = '${{ github.ref_name }}'
+          $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
+          
+          if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
+            $commits = git log --pretty=format:"- %s" --max-count=20 2>$null
+          } else {
+            $commits = git log "$previousTag..$currentTag" --pretty=format:"- %s" 2>$null
+          }
+          
+          if (-not $commits) {
+            $commits = "Initial release"
+          }
+          
+          @"
+          ## 更新内容
+          
+          $commits
+          "@ | Set-Content -Path "CHANGELOG.tmp"
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Stand Reminder ${{ github.ref_name }}
+          body_path: CHANGELOG.tmp
+          files: |
+            ${{ steps.meta.outputs.zip_name }}

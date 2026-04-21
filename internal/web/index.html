@@ -1,0 +1,1373 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <title>Stand Reminder Control Center</title>
+  <style>
+  :root {
+    --ink: #1d1d1f;
+    --muted: #6e6e73;
+    --line: rgba(17, 24, 39, 0.1);
+    --surface: rgba(255, 255, 255, 0.88);
+    --accent: #1976d2;
+    --accent-strong: #0f5baa;
+    --good: #13795b;
+    --warn: #c76b00;
+    --danger: #b42318;
+    --soft: rgba(17, 24, 39, 0.06);
+    --bg1: #f4f7fb;
+    --bg2: #edf7f3;
+    --shadow: 0 18px 60px rgba(34, 42, 53, 0.14);
+    --radius: 24px;
+    --state-work: #5D10D8;
+    --state-break: #F67A98;
+    --state-idle: #A56BFF;
+    --state-paused: #F3C64E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", "PingFang SC", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(25, 118, 210, 0.16), transparent 28%),
+      radial-gradient(circle at bottom right, rgba(19, 121, 91, 0.18), transparent 30%),
+      linear-gradient(135deg, var(--bg1), var(--bg2));
+    min-height: 100vh;
+  }
+
+  .shell {
+    width: min(1160px, calc(100% - 32px));
+    margin: 28px auto;
+    padding: 28px;
+    border-radius: 32px;
+    background: rgba(255, 255, 255, 0.68);
+    backdrop-filter: blur(24px);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255, 255, 255, 0.55);
+  }
+
+  .stack {
+    display: grid;
+    gap: 24px;
+  }
+
+  .hero,
+  .status-panel,
+  .panel,
+  .stats-panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    box-shadow: 0 8px 30px rgba(16, 24, 40, 0.06);
+    min-width: 0;
+  }
+
+  .top-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+    gap: 24px;
+    align-items: stretch;
+  }
+
+  .toolbar,
+  .stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    background: rgba(25, 118, 210, 0.08);
+    color: var(--accent-strong);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .eyebrow a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  .lang-switch,
+  .range-switch {
+    display: inline-flex;
+    gap: 8px;
+    padding: 6px;
+    background: rgba(17, 24, 39, 0.05);
+    border-radius: 999px;
+    flex-wrap: wrap;
+  }
+
+  .lang-switch button,
+  .range-switch button {
+    padding: 8px 14px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    box-shadow: none;
+  }
+
+  .lang-switch button.active,
+  .range-switch button.active {
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 4px 14px rgba(16, 24, 40, 0.08);
+  }
+
+  h1 {
+    margin: 16px 0 12px;
+    font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.08;
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 22px;
+  }
+
+  .sub,
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .hint {
+    font-size: 14px;
+    margin-top: 10px;
+  }
+
+  .quick-actions,
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .quick-actions { margin-top: 22px; }
+
+  button {
+    border: 0;
+    border-radius: 999px;
+    padding: 12px 18px;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.16s ease;
+  }
+
+  button:hover { transform: translateY(-1px); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  .primary,
+  .quick-primary {
+    background: linear-gradient(135deg, var(--accent), #46a0ff);
+    color: #fff;
+    box-shadow: 0 12px 24px rgba(25, 118, 210, 0.22);
+  }
+
+  .secondary,
+  .quick-secondary {
+    background: var(--soft);
+    color: var(--ink);
+  }
+
+  .quick-danger {
+    background: rgba(199, 107, 0, 0.12);
+    color: var(--warn);
+  }
+
+  .quick-guide,
+  .field-grid,
+  .stats-summary,
+  .metrics {
+    display: grid;
+    gap: 14px;
+  }
+
+  .quick-guide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .field-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stats-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 18px;
+  }
+
+  .metrics {
+    grid-template-columns: 1fr;
+    margin-top: 4px;
+  }
+
+  .guide-card,
+  .metric,
+  .summary-card {
+    border-radius: 18px;
+    padding: 16px 18px;
+    background: rgba(255, 255, 255, 0.78);
+    border: 1px solid rgba(17, 24, 39, 0.08);
+  }
+
+  .guide-card strong,
+  .summary-card strong {
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .guide-card span,
+  label,
+  .message,
+  .stats-empty {
+    color: var(--muted);
+  }
+
+  .hero,
+  .status-panel {
+    height: 100%;
+  }
+
+  .status-panel {
+    display: grid;
+    align-content: start;
+    gap: 14px;
+  }
+
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-self: start;
+    padding: 12px 14px;
+    border-radius: 16px;
+    font-weight: 700;
+    background: rgba(19, 121, 91, 0.08);
+    color: var(--good);
+  }
+
+  .status-chip.paused,
+  .status-chip.manual_paused,
+  .status-chip.break_mode {
+    background: rgba(199, 107, 0, 0.12);
+    color: var(--warn);
+  }
+
+  .status-chip.idle,
+  .status-chip.idle_reset {
+    background: rgba(110, 110, 115, 0.12);
+    color: var(--muted);
+  }
+
+  .status-chip.reminder_triggered {
+    background: rgba(25, 118, 210, 0.12);
+    color: var(--accent-strong);
+  }
+
+  .metric span,
+  .summary-card span {
+    display: block;
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  .metric strong,
+  .summary-card strong {
+    display: block;
+    font-size: clamp(18px, 2vw, 26px);
+    line-height: 1.15;
+    word-break: break-word;
+  }
+
+  form { display: grid; gap: 16px; }
+  label { display: grid; gap: 8px; font-size: 14px; }
+
+  input,
+  textarea {
+    width: 100%;
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    border-radius: 16px;
+    padding: 14px 16px;
+    font: inherit;
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  textarea { min-height: 112px; resize: vertical; }
+  .message { margin-top: 14px; min-height: 22px; font-size: 14px; }
+  .message.ok { color: var(--good); }
+  .message.error { color: var(--danger); }
+  .message.warn { color: var(--warn); }
+
+  .break-card { margin-top: 16px; display: none; }
+  .break-card.active { display: block; }
+  .break-timer { font-size: 32px; font-weight: 800; margin-top: 8px; }
+
+  .stats-panel {
+    overflow: hidden;
+  }
+
+  .stats-hover-info {
+    min-height: 44px;
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(17, 24, 39, 0.04);
+    color: var(--muted);
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .stats-hover-label {
+    color: var(--muted);
+  }
+
+  .stats-hover-details {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .stats-hover-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--muted);
+  }
+
+  .stats-hover-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    flex: 0 0 auto;
+  }
+
+  .stats-chart {
+    margin-top: 16px;
+  }
+
+  .stats-chart.today {
+    display: grid;
+    gap: 14px;
+  }
+  .today-wave-wrap {
+    position: relative;
+    min-height: 304px;
+  }
+  .today-wave-canvas {
+    display: block;
+    width: 100%;
+    height: 264px;
+  }
+  .today-floating-tooltip {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    display: none;
+    min-width: 156px;
+    max-width: 220px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(147, 69, 255, 0.22);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 24px rgba(20, 20, 43, 0.12);
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ink);
+    pointer-events: none;
+    z-index: 5;
+  }
+  .today-floating-tooltip.visible {
+    display: block;
+  }
+  .today-floating-tooltip-title {
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 4px;
+  }
+  .today-floating-tooltip-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .today-floating-tooltip-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+  }
+  .today-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 0 2px;
+  }
+  .today-meta strong {
+    display: block;
+    font-size: 15px;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+
+  .stats-chart.range {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(26px, 1fr));
+    align-items: end;
+    gap: 12px;
+    min-height: 208px;
+  }
+
+  .chart-bar {
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    min-width: 0;
+  }
+  .chart-column {
+    width: 100%;
+    max-width: 24px;
+    height: 168px;
+    display: flex;
+    flex-direction: column-reverse;
+    justify-content: flex-start;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(17, 24, 39, 0.05);
+    transform-origin: center bottom;
+    transition: transform 0.16s ease;
+  }
+
+  .chart-segment {
+    width: 100%;
+    border-radius: 0;
+  }
+
+  .chart-column .chart-segment:first-child {
+    border-bottom-left-radius: 999px;
+    border-bottom-right-radius: 999px;
+  }
+
+  .chart-column .chart-segment:last-child {
+    border-top-left-radius: 999px;
+    border-top-right-radius: 999px;
+  }
+
+  .chart-bar:hover .chart-column { transform: scaleX(1.06); }
+  .chart-segment.work { background: var(--state-work); }
+  .chart-segment.break { background: var(--state-break); }
+  .chart-segment.idle { background: var(--state-idle); }
+  .chart-segment.paused { background: var(--state-paused); }
+
+  .chart-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.2;
+    min-height: 24px;
+  }
+
+  .stats-empty {
+    grid-column: 1 / -1;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px dashed rgba(17, 24, 39, 0.12);
+    text-align: center;
+  }
+
+  @media (max-width: 980px) {
+    .top-row,
+    .field-grid,
+    .quick-guide,
+    .stats-summary {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .hidden {
+    display: none !important;
+  }
+
+  #eyebrowVersion.has-update {
+    text-decoration: underline;
+    text-decoration-color: #3b82f6;
+    text-underline-offset: 4px;
+    text-decoration-thickness: 2px;
+  }
+
+  @media (max-width: 860px) {
+    .shell {
+      width: min(100% - 20px, 1160px);
+      padding: 18px;
+      margin: 14px auto;
+    }
+
+    .toolbar,
+    .stats-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .today-wave-canvas {
+      height: 220px;
+    }
+
+    .today-meta {
+      font-size: 12px;
+    }
+
+  }
+</style>
+</head>
+<body>
+  <main class="shell">
+    <section class="stack">
+      <section class="top-row">
+        <article class="hero">
+          <div class="toolbar">
+            <div class="eyebrow"><span id="eyebrowName"></span>&nbsp;<a id="eyebrowVersion" href="https://github.com/sheetung/stand-Reminder" target="_blank" rel="noreferrer"></a></div>
+            <div class="lang-switch">
+              <button id="langZh" class="active" type="button">中文</button>
+              <button id="langEn" type="button">EN</button>
+            </div>
+          </div>
+          <h1 data-i18n="heroTitle"></h1>
+          <p class="sub" data-i18n="heroSub"></p>
+          <div class="quick-actions">
+            <button class="quick-secondary" type="button" id="heroPauseButton" data-i18n="btnPause"></button>
+            <button class="quick-secondary" type="button" id="heroResumeButton" data-i18n="btnResume"></button>
+            <button class="quick-danger" type="button" id="heroBreakButton" data-i18n="btnBreak"></button>
+            <button class="quick-secondary" type="button" id="heroRefreshButton" data-i18n="btnRefresh"></button>
+          </div>
+          <div id="breakCard" class="guide-card break-card">
+            <strong data-i18n="breakTitle"></strong>
+            <span data-i18n="breakSub"></span>
+            <div id="breakTimer" class="break-timer">10:00</div>
+          </div>
+          <div class="quick-guide">
+            <div class="guide-card">
+              <strong data-i18n="guidePauseTitle"></strong>
+              <span data-i18n="guidePauseBody"></span>
+            </div>
+            <div class="guide-card">
+              <strong data-i18n="guideBreakTitle"></strong>
+              <span data-i18n="guideBreakBody"></span>
+            </div>
+          </div>
+        </article>
+
+        <article class="status-panel">
+          <div id="statusChip" class="status-chip">--</div>
+          <div class="metrics">
+            <div class="metric"><span data-i18n="metricRemaining"></span><strong id="remainingValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricAccumulated"></span><strong id="accumulatedValue">--</strong></div>
+            <div class="metric"><span data-i18n="metricIdleAccumulated"></span><strong id="idleValue">--</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <article class="stats-panel">
+        <div class="stats-header">
+          <div>
+            <h2 data-i18n="statsTitle"></h2>
+            <p class="hint" data-i18n="statsHint"></p>
+          </div>
+          <div class="range-switch">
+            <button id="rangeToday" class="active" type="button" data-range="today" data-i18n="rangeToday"></button>
+            <button id="range7d" type="button" data-range="7d" data-i18n="range7d"></button>
+            <button id="range20d" type="button" data-range="20d" data-i18n="range20d"></button>
+          </div>
+        </div>
+        <div class="stats-summary">
+          <div class="summary-card"><span data-i18n="statsTotalActive"></span><strong id="statsActiveValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalWork"></span><strong id="statsWorkValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalIdle"></span><strong id="statsIdleValue">--</strong></div>
+          <div class="summary-card"><span data-i18n="statsTotalReminders"></span><strong id="statsReminderValue">--</strong></div>
+        </div>
+        <div id="statsHoverInfo" class="stats-hover-info"></div>
+        <div id="statsDays" class="stats-chart"></div>
+      </article>
+
+      <article class="panel">
+        <h2 data-i18n="settingsTitle"></h2>
+        <p class="hint" data-i18n="settingsHint"></p>
+        <form id="configForm">
+          <div class="field-grid">
+            <label>
+              <span data-i18n="labelRemindAfter"></span>
+              <input id="remindAfterMinutes" type="number" min="1" required />
+            </label>
+            <label>
+              <span data-i18n="labelIdleReset"></span>
+              <input id="idleResetMinutes" type="number" min="1" required />
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>
+              <span data-i18n="labelCheckInterval"></span>
+              <input id="checkIntervalSeconds" type="number" min="1" required />
+            </label>
+            <label>
+              <span data-i18n="labelTitle"></span>
+              <input id="notificationTitle" type="text" required />
+            </label>
+          </div>
+          <label>
+            <span data-i18n="labelMessage"></span>
+            <textarea id="notificationMessage" required></textarea>
+          </label>
+          <div class="actions">
+            <button class="primary" type="submit" data-i18n="btnSave"></button>
+            <button class="secondary" type="button" id="testButton" data-i18n="btnTest"></button>
+          </div>
+        </form>
+        <div id="message" class="message"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const localePaths = {
+      zh: '/locales/zh.json',
+      en: '/locales/en.json',
+    };
+    const i18n = {};
+    let appVersion = 'v0.5.2'; // Default fallback
+    const repoURL = 'https://github.com/sheetung/stand-Reminder';
+
+    let currentLang = 'zh';
+    let breakEndsAt = null;
+    let breakDoneNotified = false;
+    let formDirty = false;
+    let currentRange = 'today';
+
+    const form = document.getElementById('configForm');
+    const messageEl = document.getElementById('message');
+    const testButton = document.getElementById('testButton');
+    const heroPauseButton = document.getElementById('heroPauseButton');
+    const heroResumeButton = document.getElementById('heroResumeButton');
+    const heroBreakButton = document.getElementById('heroBreakButton');
+    const heroRefreshButton = document.getElementById('heroRefreshButton');
+    const langZh = document.getElementById('langZh');
+    const langEn = document.getElementById('langEn');
+    const eyebrowName = document.getElementById('eyebrowName');
+    const eyebrowVersion = document.getElementById('eyebrowVersion');
+    const breakCard = document.getElementById('breakCard');
+    const breakTimer = document.getElementById('breakTimer');
+    const statsDays = document.getElementById('statsDays');
+    const statsHoverInfo = document.getElementById('statsHoverInfo');
+    const rangeButtons = Array.from(document.querySelectorAll('[data-range]'));
+
+    const fields = {
+      remind_after_minutes: document.getElementById('remindAfterMinutes'),
+      idle_reset_minutes: document.getElementById('IdleResetMinutes') || document.getElementById('idleResetMinutes'),
+      check_interval_seconds: document.getElementById('checkIntervalSeconds'),
+      notification_title: document.getElementById('notificationTitle'),
+      notification_message: document.getElementById('notificationMessage'),
+    };
+
+    function t(key) {
+      return i18n[currentLang]?.[key] || key;
+    }
+
+    async function ensureLocale(lang) {
+      if (i18n[lang]) return i18n[lang];
+      const response = await fetch(localePaths[lang]);
+      if (!response.ok) throw new Error(`Failed to load locale: ${lang}`);
+      i18n[lang] = await response.json();
+      return i18n[lang];
+    }
+
+        function normalizeLang(locale) {
+      return String(locale || '').toLowerCase().startsWith('en') ? 'en' : 'zh';
+    }
+
+    async function persistLanguage(lang) {
+      const response = await fetch('/api/locale', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locale: lang }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to save locale');
+      }
+      return normalizeLang(data.locale);
+    }
+
+    async function switchLanguage(lang) {
+      await ensureLocale(lang);
+      currentLang = await persistLanguage(lang);
+      applyLanguage();
+      if (formDirty) {
+        setMessage(t('msgEditing'), 'warn');
+      }
+      await refresh().catch(() => {});
+      await refreshStats().catch(() => {});
+    }
+
+    function applyLanguage() {
+      if (!i18n[currentLang]) return;
+      document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+      document.querySelectorAll('[data-i18n]').forEach((node) => {
+        node.textContent = t(node.dataset.i18n);
+      });
+      eyebrowName.textContent = t('eyebrowName');
+      eyebrowVersion.textContent = appVersion;
+      eyebrowVersion.href = repoURL;
+      langZh.classList.toggle('active', currentLang === 'zh');
+      langEn.classList.toggle('active', currentLang === 'en');
+      rangeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.range === currentRange);
+      });
+    }
+
+    function formatDuration(totalSeconds) {
+      const safe = Math.max(0, Number(totalSeconds || 0));
+      const hours = Math.floor(safe / 3600);
+      const minutes = Math.floor((safe % 3600) / 60);
+      const seconds = safe % 60;
+      if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+      if (minutes > 0) return `${minutes}m ${seconds}s`;
+      return `${seconds}s`;
+    }
+
+    function formatClock(totalSeconds) {
+      const safe = Math.max(0, Number(totalSeconds || 0));
+      const minutes = Math.floor(safe / 60).toString().padStart(2, '0');
+      const seconds = Math.floor(safe % 60).toString().padStart(2, '0');
+      return `${minutes}:${seconds}`;
+    }
+
+    function prettyStatus(status) {
+      return i18n[currentLang]?.status?.[status] || status || 'Unknown';
+    }
+
+    function setMessage(text, type = '') {
+      messageEl.textContent = text;
+      messageEl.className = `message ${type}`.trim();
+    }
+
+    function markDirty() {
+      formDirty = true;
+      setMessage(t('msgEditing'), 'warn');
+    }
+
+    function fillForm(data) {
+      fields.remind_after_minutes.value = data.remind_after_minutes;
+      fields.idle_reset_minutes.value = data.idle_reset_minutes;
+      fields.check_interval_seconds.value = data.check_interval_seconds;
+      fields.notification_title.value = data.notification_title;
+      fields.notification_message.value = data.notification_message;
+      formDirty = false;
+    }
+
+    function updateBreakTimer() {
+      if (!breakEndsAt) {
+        breakCard.classList.remove('active');
+        breakDoneNotified = false;
+        return;
+      }
+
+      const diff = Math.max(0, Math.floor((breakEndsAt - Date.now()) / 1000));
+      breakCard.classList.add('active');
+      breakTimer.textContent = formatClock(diff);
+
+      if (diff === 0) {
+        breakEndsAt = null;
+        if (!breakDoneNotified) {
+          setMessage(t('breakDone'), 'ok');
+          breakDoneNotified = true;
+        }
+      }
+    }
+
+    function renderStatus(data) {
+      document.getElementById('remainingValue').textContent = formatDuration(data.remaining_seconds);
+      document.getElementById('accumulatedValue').textContent = formatDuration(data.accumulated_seconds);
+      document.getElementById('idleValue').textContent = formatDuration(data.idle_accumulated_seconds);
+
+      // Update app version from API response
+      if (data.version) {
+        appVersion = data.version;
+        eyebrowVersion.textContent = appVersion;
+      }
+
+      const chip = document.getElementById('statusChip');
+      chip.textContent = prettyStatus(data.status);
+      chip.className = `status-chip ${data.status || ''}`;
+
+      if (!formDirty) {
+        fillForm(data);
+      }
+
+      heroPauseButton.disabled = Boolean(data.paused) || Boolean(data.on_break);
+      heroResumeButton.disabled = !data.paused && !data.on_break;
+      heroBreakButton.disabled = Boolean(data.on_break);
+
+      breakEndsAt = data.break_ends_at ? Date.parse(data.break_ends_at) : null;
+      if (breakEndsAt) {
+        breakDoneNotified = false;
+      }
+      updateBreakTimer();
+    }
+
+    function setStatsHover(bar) {
+      if (!bar) {
+        statsHoverInfo.textContent = t('statsHoverDefault');
+        return;
+      }
+
+      const colors = getStateColors();
+      const totalAccumulated = Number(bar.total_seconds || 0)
+        || Number(bar.work_seconds || 0) + Number(bar.break_seconds || 0) + Number(bar.idle_seconds || 0) + Number(bar.paused_seconds || 0);
+
+      statsHoverInfo.innerHTML = `
+        <span class="stats-hover-label">${bar.label}</span>
+        <span class="stats-hover-details">
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.work}"></span>${t('statsTotalActive')}: ${formatDuration(totalAccumulated)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.work}"></span>${t('statsWork')}: ${formatDuration(bar.work_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.idle}"></span>${t('statsIdle')}: ${formatDuration(bar.idle_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.break}"></span>${t('statsBreak')}: ${formatDuration(bar.break_seconds || 0)}</span>
+          <span class="stats-hover-item"><span class="stats-hover-dot" style="background:${colors.paused}"></span>${t('statsPaused')}: ${formatDuration(bar.paused_seconds || 0)}</span>
+        </span>
+      `;
+    }
+
+    function getStateColors() {
+      const styles = getComputedStyle(document.documentElement);
+      return {
+        work: styles.getPropertyValue('--state-work').trim(),
+        break: styles.getPropertyValue('--state-break').trim(),
+        idle: styles.getPropertyValue('--state-idle').trim(),
+        paused: styles.getPropertyValue('--state-paused').trim(),
+      };
+    }
+
+    function formatSlotTime(slotIndex) {
+      const totalMinutes = Math.max(0, slotIndex) * 5;
+      const hours = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+      const minutes = String(totalMinutes % 60).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
+    function buildTodaySegments(bars) {
+      const stateOrder = ['paused', 'break', 'idle', 'work'];
+      const stateLabelMap = {
+        paused: t('statsPaused'),
+        break: t('statsBreak'),
+        idle: t('statsIdle'),
+        work: t('statsWork'),
+      };
+
+      const segments = [];
+      let current = null;
+
+      bars.forEach((bar, index) => {
+        const dominant = bar.dominant || '';
+        const total = Number(bar.total_seconds || 0);
+        if (!dominant || total <= 0) {
+          current = null;
+          return;
+        }
+
+        if (!current || current.state !== dominant || current.end !== index - 1) {
+          current = {
+            start: index,
+            end: index,
+            state: dominant,
+            level: Math.max(0, stateOrder.indexOf(dominant)),
+            label: stateLabelMap[dominant] || dominant,
+            work_seconds: Number(bar.work_seconds || 0),
+            break_seconds: Number(bar.break_seconds || 0),
+            idle_seconds: Number(bar.idle_seconds || 0),
+            paused_seconds: Number(bar.paused_seconds || 0),
+          };
+          segments.push(current);
+          return;
+        }
+
+        current.end = index;
+        current.work_seconds += Number(bar.work_seconds || 0);
+        current.break_seconds += Number(bar.break_seconds || 0);
+        current.idle_seconds += Number(bar.idle_seconds || 0);
+        current.paused_seconds += Number(bar.paused_seconds || 0);
+      });
+
+      return segments;
+    }
+
+    function roundedRectPath(ctx, startX, startY, endX, endY, radius) {
+      const width = endX - startX;
+      const actualRadius = Math.max(0, Math.min(radius, width / 2, (endY - startY) / 2));
+      const hasStraight = width > actualRadius * 2;
+      ctx.beginPath();
+      ctx.moveTo(startX, startY + actualRadius);
+      ctx.lineTo(startX, endY - actualRadius);
+      ctx.quadraticCurveTo(startX, endY, startX + actualRadius, endY);
+      if (hasStraight) {
+        ctx.lineTo(endX - actualRadius, endY);
+      }
+      ctx.quadraticCurveTo(endX, endY, endX, endY - actualRadius);
+      ctx.lineTo(endX, startY + actualRadius);
+      ctx.quadraticCurveTo(endX, startY, endX - actualRadius, startY);
+      if (hasStraight) {
+        ctx.lineTo(startX + actualRadius, startY);
+      }
+      ctx.quadraticCurveTo(startX, startY, startX, startY + actualRadius);
+      return actualRadius;
+    }
+
+    function showTodayTooltip(tooltip, segment, event, bounds, color) {
+      const colors = getStateColors();
+      const detailMap = {
+        work: { label: t('statsWork'), seconds: Number(segment.work_seconds || 0), color: colors.work },
+        break: { label: t('statsBreak'), seconds: Number(segment.break_seconds || 0), color: colors.break },
+        idle: { label: t('statsIdle'), seconds: Number(segment.idle_seconds || 0), color: colors.idle },
+        paused: { label: t('statsPaused'), seconds: Number(segment.paused_seconds || 0), color: colors.paused },
+      };
+      const detail = detailMap[segment.state] || { label: segment.label, seconds: 0, color };
+
+      tooltip.innerHTML = `
+        <div class="today-floating-tooltip-title">${segment.label}</div>
+        <div class="today-floating-tooltip-row"><span class="today-floating-tooltip-dot" style="background:${color}"></span><span>${formatSlotTime(segment.start)} - ${formatSlotTime(segment.end + 1)}</span></div>
+        <div class="today-floating-tooltip-row"><span class="today-floating-tooltip-dot" style="background:${detail.color}"></span><span>${detail.label}: ${formatDuration(detail.seconds)}</span></div>
+      `;
+      tooltip.classList.add('visible');
+      const tooltipRect = tooltip.getBoundingClientRect();
+      const relativeX = event.clientX - bounds.left;
+      const relativeY = event.clientY - bounds.top;
+      const left = Math.min(Math.max(12, relativeX + 12), Math.max(12, bounds.width - tooltipRect.width - 12));
+      const top = Math.min(Math.max(10, relativeY - tooltipRect.height - 12), Math.max(10, bounds.height - tooltipRect.height - 10));
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    }
+
+    function renderTodayWaveChart(bars) {
+      const segments = buildTodaySegments(bars);
+      if (!segments.length) {
+        const empty = document.createElement('div');
+        empty.className = 'stats-empty';
+        empty.textContent = t('statsNoData');
+        statsDays.appendChild(empty);
+        return;
+      }
+
+      const wrap = document.createElement('div');
+      wrap.className = 'today-wave-wrap';
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'today-wave-canvas';
+      wrap.appendChild(canvas);
+
+      const tooltip = document.createElement('div');
+      tooltip.className = 'today-floating-tooltip';
+      wrap.appendChild(tooltip);
+      statsDays.appendChild(wrap);
+
+      const meta = document.createElement('div');
+      meta.className = 'today-meta';
+      const nonEmptyBars = bars.map((bar, index) => ({ index, total: Number(bar.total_seconds || 0) })).filter((bar) => bar.total > 0);
+      const startLabel = document.createElement('div');
+      const endLabel = document.createElement('div');
+      startLabel.innerHTML = `<div>${t('todayStart')}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[0].index) : '00:00'}</strong>`;
+      endLabel.innerHTML = `<div>${t('todayEnd')}</div><strong>${nonEmptyBars.length ? formatSlotTime(nonEmptyBars[nonEmptyBars.length - 1].index + 1) : '24:00'}</strong>`;
+      meta.appendChild(startLabel);
+      meta.appendChild(endLabel);
+      statsDays.appendChild(meta);
+
+      const dpr = window.devicePixelRatio || 1;
+      const width = Math.max(320, wrap.clientWidth);
+      const height = 264;
+      canvas.width = Math.floor(width * dpr);
+      canvas.height = Math.floor(height * dpr);
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      const axisXHeight = 24;
+      const plotTop = 16;
+      const plotHeight = height - plotTop - axisXHeight;
+      const levelCount = Math.max(1, Math.max(...segments.map((segment) => segment.level)) + 1);
+      const yDis = plotHeight / levelCount;
+      const radius = Math.min(12, yDis / 4);
+      const xDis = width / bars.length;
+      const styleMap = getStateColors();
+      const hoverRegions = [];
+      const topForLevel = (level) => plotTop + level * yDis + radius;
+      const bottomForLevel = (level) => topForLevel(level) + yDis - 2 * radius;
+
+      segments.forEach((segment, index) => {
+        const startX = segment.start * xDis;
+        const endX = (segment.end + 1) * xDis;
+        const startY = topForLevel(segment.level);
+        const endY = bottomForLevel(segment.level);
+        const fill = styleMap[segment.state] || styleMap.work;
+
+        ctx.save();
+        const currentRadius = roundedRectPath(ctx, startX, startY, endX, endY, radius);
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = fill;
+        ctx.stroke();
+        ctx.fillStyle = fill;
+        ctx.fill();
+        ctx.restore();
+
+        hoverRegions.push({
+          x: startX,
+          y: startY,
+          width: Math.max(1, endX - startX),
+          height: Math.max(1, endY - startY),
+          segment,
+          color: fill,
+        });
+
+        const nextSegment = segments[index + 1];
+        if (!nextSegment || nextSegment.level === segment.level || nextSegment.start !== segment.end + 1) {
+          return;
+        }
+
+        const nextStartX = nextSegment.start * xDis;
+        const nextEndX = (nextSegment.end + 1) * xDis;
+        const nextStartY = topForLevel(nextSegment.level);
+        const nextEndY = bottomForLevel(nextSegment.level);
+        const nextColor = styleMap[nextSegment.state] || styleMap.work;
+        const nextRadius = Math.max(0, Math.min(radius, (nextEndX - nextStartX) / 2, (nextEndY - nextStartY) / 2));
+
+        const dir = segment.level > nextSegment.level;
+        const lineX = nextStartX;
+        const lineStartY = dir ? topForLevel(segment.level) : bottomForLevel(segment.level);
+        const lineEndY = dir ? nextEndY : nextStartY;
+        const gradient = ctx.createLinearGradient(lineX, lineStartY, lineX, lineEndY);
+        gradient.addColorStop(0, fill);
+        gradient.addColorStop(1, nextColor);
+
+        const lineRadius = Math.max(radius, 2);
+        const startOffset = dir ? -lineRadius : lineRadius;
+        const endOffset = dir ? lineRadius : -lineRadius;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = gradient;
+        ctx.moveTo(lineX, lineStartY + startOffset);
+        ctx.quadraticCurveTo(lineX, lineStartY, lineX - currentRadius, lineStartY);
+        ctx.quadraticCurveTo(lineX, lineStartY, lineX, lineStartY - startOffset);
+        ctx.lineTo(lineX, lineEndY - endOffset);
+        ctx.quadraticCurveTo(lineX, lineEndY, lineX + nextRadius, lineEndY);
+        ctx.quadraticCurveTo(lineX, lineEndY, lineX, lineEndY + endOffset);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      canvas.addEventListener('mousemove', (event) => {
+        const rect = canvas.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        const region = hoverRegions.find((item) => x >= item.x && x <= item.x + item.width && y >= item.y && y <= item.y + item.height);
+        if (!region) {
+          tooltip.classList.remove('visible');
+          setStatsHover(null);
+          return;
+        }
+        setStatsHover({
+          label: `${formatSlotTime(region.segment.start)} - ${formatSlotTime(region.segment.end + 1)}`,
+          work_seconds: region.segment.work_seconds,
+          break_seconds: region.segment.break_seconds,
+          idle_seconds: region.segment.idle_seconds,
+          paused_seconds: region.segment.paused_seconds,
+        });
+        showTodayTooltip(tooltip, region.segment, event, rect, region.color);
+      });
+
+      canvas.addEventListener('mouseleave', () => {
+        tooltip.classList.remove('visible');
+        setStatsHover(null);
+      });
+    }
+
+    function renderStats(data) {
+      const totalWork = Number(data.total_work_seconds || 0);
+      const totalBreak = Number(data.total_break_seconds || 0);
+      const totalIdle = Number(data.total_idle_seconds || 0);
+      const totalPaused = Number(data.total_paused_seconds || 0);
+      const totalAccumulated = totalWork + totalBreak + totalIdle + totalPaused;
+
+      document.getElementById('statsActiveValue').textContent = formatDuration(totalAccumulated);
+      document.getElementById('statsWorkValue').textContent = formatDuration(totalWork);
+      document.getElementById('statsIdleValue').textContent = formatDuration(totalIdle);
+      document.getElementById('statsReminderValue').textContent = String(data.total_reminders || 0);
+
+      rangeButtons.forEach((button) => {
+        button.classList.toggle('active', button.dataset.range === currentRange);
+      });
+
+      statsDays.innerHTML = '';
+      statsDays.className = currentRange === 'today' ? 'stats-chart today' : 'stats-chart range';
+      setStatsHover(null);
+
+      const bars = Array.isArray(data.bars) ? data.bars : [];
+      const maxTotal = bars.reduce((max, bar) => Math.max(max, Number(bar.total_seconds || 0)), 0);
+
+      if (bars.length === 0 || maxTotal === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'stats-empty';
+        empty.textContent = t('statsNoData');
+        statsDays.appendChild(empty);
+        return;
+      }
+
+      if (currentRange === 'today') {
+        renderTodayWaveChart(bars);
+        return;
+      }
+
+      const shouldShowLabel = (index, total) => {
+        if (currentRange === '20d') {
+          return index % 3 === 0 || index === total - 1;
+        }
+        return true;
+      };
+
+      bars.forEach((bar, index) => {
+        const workSeconds = Number(bar.work_seconds || 0);
+        const breakSeconds = Number(bar.break_seconds || 0);
+        const idleSeconds = Number(bar.idle_seconds || 0);
+        const pausedSeconds = Number(bar.paused_seconds || 0);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chart-bar';
+        wrapper.addEventListener('mouseenter', () => setStatsHover(bar));
+
+        const column = document.createElement('div');
+        column.className = 'chart-column';
+
+        const segmentsForBar = [
+          { name: 'work', value: workSeconds },
+          { name: 'idle', value: idleSeconds },
+          { name: 'break', value: breakSeconds },
+          { name: 'paused', value: pausedSeconds },
+        ];
+
+        segmentsForBar.forEach((segment) => {
+          if (segment.value <= 0) return;
+          const node = document.createElement('div');
+          node.className = `chart-segment ${segment.name}`;
+          node.style.height = `${Math.max(6, (segment.value / maxTotal) * 220)}px`;
+          column.appendChild(node);
+        });
+
+        const label = document.createElement('div');
+        label.className = 'chart-label';
+        label.textContent = shouldShowLabel(index, bars.length) ? bar.label : '';
+
+        wrapper.appendChild(column);
+        wrapper.appendChild(label);
+        statsDays.appendChild(wrapper);
+      });
+
+      statsDays.addEventListener('mouseleave', () => setStatsHover(null), { once: true });
+    }
+
+    async function refresh() {
+      const response = await fetch('/api/status');
+      if (!response.ok) throw new Error('Failed to load status');
+      const data = await response.json();
+      renderStatus(data);
+    }
+
+    async function refreshStats() {
+      const response = await fetch(`/api/stats?range=${encodeURIComponent(currentRange)}`);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || t('msgStatsFailed'));
+      }
+      renderStats(data);
+    }
+
+    async function saveConfig() {
+      setMessage(t('msgSaving'));
+      const payload = {
+        remind_after_minutes: Number(fields.remind_after_minutes.value),
+        idle_reset_minutes: Number(fields.idle_reset_minutes.value),
+        check_interval_seconds: Number(fields.check_interval_seconds.value),
+        notification_title: fields.notification_title.value.trim(),
+        notification_message: fields.notification_message.value.trim(),
+      };
+
+      const response = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || t('msgSaveFailed'), 'error');
+        return false;
+      }
+
+      formDirty = false;
+      setMessage(t('msgSaved'), 'ok');
+      await refresh();
+      return true;
+    }
+
+    async function sendTestNotification() {
+      setMessage(t('msgSending'));
+      const response = await fetch('/api/test-notification', { method: 'POST' });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || t('msgTestFailed'), 'error');
+        return;
+      }
+      setMessage(t('msgSent'), 'ok');
+    }
+
+    async function runAction(action, successText) {
+      const response = await fetch('/api/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        setMessage(data.error || t('msgActionFailed'), 'error');
+        return;
+      }
+      renderStatus(data);
+      await refreshStats().catch(() => {});
+      setMessage(successText, 'ok');
+    }
+
+    Object.values(fields).forEach((field) => {
+      field.addEventListener('input', markDirty);
+      field.addEventListener('change', markDirty);
+    });
+
+    rangeButtons.forEach((button) => {
+      button.addEventListener('click', async () => {
+        currentRange = button.dataset.range;
+        applyLanguage();
+        try {
+          await refreshStats();
+        } catch (error) {
+          setMessage(error.message || t('msgStatsFailed'), 'error');
+        }
+      });
+    });
+
+    langZh.addEventListener('click', () => {
+      switchLanguage('zh').catch((error) => setMessage(error.message || 'Locale load failed', 'error'));
+    });
+
+    langEn.addEventListener('click', () => {
+      switchLanguage('en').catch((error) => setMessage(error.message || 'Locale load failed', 'error'));
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await saveConfig();
+    });
+
+    testButton.addEventListener('click', sendTestNotification);
+    heroPauseButton.addEventListener('click', () => runAction('pause', t('msgPaused')));
+    heroResumeButton.addEventListener('click', () => runAction('resume', t('msgResumed')));
+    heroBreakButton.addEventListener('click', () => runAction('break', t('msgBreakStarted')));
+    heroRefreshButton.addEventListener('click', async () => {
+      await refresh();
+      await refreshStats().catch(() => {});
+      if (!formDirty) {
+        setMessage(t('msgRefreshed'), 'ok');
+      }
+    });
+
+        async function boot() {
+      await Promise.all([ensureLocale('zh'), ensureLocale('en')]);
+      const response = await fetch('/api/status');
+      if (!response.ok) {
+        throw new Error('Failed to load status');
+      }
+      const data = await response.json();
+      currentLang = normalizeLang(data.locale);
+      applyLanguage();
+      renderStatus(data);
+      
+      // Check for update only once at startup
+      if (data.has_update) {
+        eyebrowVersion.classList.add('has-update');
+      }
+      
+      await refreshStats();
+      setInterval(() => refresh().catch(() => {}), 2000);
+      setInterval(updateBreakTimer, 1000);
+      setInterval(() => refreshStats().catch(() => {}), 60000);
+    }
+
+    boot().catch((error) => setMessage(error.message || t('msgStatsFailed'), 'error'));
+  </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
