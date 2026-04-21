@@ -689,5 +689,18 @@ document.addEventListener('DOMContentLoaded', () => {
     breakCard.appendChild(gameButton);
   }
 
+  // Add click outside to close functionality
+  const gameOverlay = document.getElementById('gameOverlay');
+  if (gameOverlay) {
+    gameOverlay.addEventListener('click', (event) => {
+      if (event.target === gameOverlay) {
+        const gameManager = window.gameManager;
+        if (gameManager && gameManager.close) {
+          gameManager.close();
+        }
+      }
+    });
+  }
+
   window.gameManager = new GameManager(4, KeyboardInputManager, HTMLActuator, LocalStorageManager);
 });
