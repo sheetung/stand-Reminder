@@ -81,20 +81,20 @@ jobs:
           $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
           
           if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
-            $commits = git log --pretty=format:"- %s" --max-count=20 2>$null
+            $commits = @(git log --pretty=format:"- %s" --max-count=20 2>$null)
           } else {
-            $commits = git log "$previousTag..$currentTag" --pretty=format:"- %s" 2>$null
+            $commits = @(git log "$previousTag..$currentTag" --pretty=format:"- %s" 2>$null)
           }
           
           if (-not $commits) {
-            $commits = "Initial release"
+            $commits = @("- Initial release")
           }
           
-          @"
-          ## 更新内容
-          
-          $commits
-          "@ | Set-Content -Path "CHANGELOG.tmp"
+          $body = @(
+            "## 更新内容"
+            ""
+          ) + $commits
+          $body | Set-Content -Path "CHANGELOG.tmp" -Encoding utf8
 
       - name: Publish release
         if: github.ref_type == 'tag'
