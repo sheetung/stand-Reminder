@@ -12,7 +12,7 @@ import (
 	"stand-reminder/internal/config"
 )
 
-//go:embed index.html locales/*.json
+//go:embed index.html 2048.css 2048.js locales/*.json
 var assets embed.FS
 
 type Server struct {
@@ -35,6 +35,8 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
+	mux.HandleFunc("/2048.css", s.handleStatic)
+	mux.HandleFunc("/2048.js", s.handleStatic)
 	mux.HandleFunc("/locales/", s.handleLocale)
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/locale", s.handleLocalePreference)
@@ -70,6 +72,31 @@ func (s *Server) handleFavicon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/x-icon")
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	_, _ = w.Write(appassets.StandReminderICO)
+}
+
+func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	path := r.URL.Path[1:] // Remove leading slash
+	data, err := assets.ReadFile(path)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Set appropriate content type
+	switch path {
+	case "2048.css":
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+	case "2048.js":
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	}
+
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handleLocale(w http.ResponseWriter, r *http.Request) {
