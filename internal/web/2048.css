@@ -300,6 +300,12 @@
   color: #776e65;
 }
 
+.game-message .game-button {
+  flex: 0 0 auto;
+  margin-top: 18px;
+  min-width: 140px;
+}
+
 .game-message.game-won {
   background: rgba(237, 194, 46, 0.5);
   color: #f9f6f2;

@@ -239,6 +239,7 @@ class HTMLActuator {
   constructor() {
     this.tileContainer = document.getElementById('tileContainer');
     this.gridContainer = document.getElementById('gameGrid');
+    this.gridWrapper = document.querySelector('.game-grid-container') || this.tileContainer.parentElement;
     this.scoreContainer = document.getElementById('gameScore');
     this.messageContainer = null;
     this.score = 0;
@@ -366,10 +367,12 @@ class HTMLActuator {
     message.classList.add('game-message', type);
     message.innerHTML = '<p>' + text + '</p><button class="game-button">Try Again</button>';
 
-    this.tileContainer.appendChild(message);
+    this.gridWrapper.appendChild(message);
 
     message.querySelector('button').addEventListener('click', () => {
-      this.emit('restart');
+      if (window.gameManager) {
+        window.gameManager.restart();
+      }
     });
 
     this.messageContainer = message;
