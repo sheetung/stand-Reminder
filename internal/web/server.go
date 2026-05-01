@@ -31,7 +31,7 @@ func NewServer(application *app.App) *Server {
 	return &Server{app: application}
 }
 
-func (s *Server) ListenAndServe(addr string) error {
+func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", s.handleIndex)
 	mux.HandleFunc("/favicon.ico", s.handleFavicon)
@@ -44,7 +44,11 @@ func (s *Server) ListenAndServe(addr string) error {
 	mux.HandleFunc("/api/config", s.handleConfig)
 	mux.HandleFunc("/api/test-notification", s.handleTestNotification)
 	mux.HandleFunc("/api/action", s.handleAction)
-	return http.ListenAndServe(addr, mux)
+	return mux
+}
+
+func (s *Server) ListenAndServe(addr string) error {
+	return http.ListenAndServe(addr, s.Handler())
 }
 
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {

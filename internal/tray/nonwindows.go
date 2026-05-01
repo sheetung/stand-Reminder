@@ -2,6 +2,6 @@
 
 package tray
 
-func Run(_ string) error {
+func Run(_ string, _ func() string) error {
 	select {}
 }

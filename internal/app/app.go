@@ -104,6 +104,13 @@ func (a *App) Stats(rangeKey string) (stats.Summary, error) {
 	return a.store.Summary(rangeKey, time.Now())
 }
 
+func (a *App) Shutdown() {
+	log.Println("app shutting down...")
+	if err := a.store.Close(); err != nil {
+		log.Printf("store close: %v", err)
+	}
+}
+
 func (a *App) Run() {
 	for {
 		a.mu.Lock()
@@ -169,7 +176,7 @@ func (a *App) Run() {
 		a.state.BreakEndsAt = ""
 		a.state.IdleSeconds = int64(idle / time.Second)
 		a.state.AccumulatedSeconds = int64(result.Accumulated / time.Second)
-		if result.State == reminder.StatePaused || result.State == reminder.StateIdle || result.State == reminder.StateIdleReset {
+		if result.State == reminder.StateIdle || result.State == reminder.StateIdleReset {
 			a.state.IdleAccumulatedSeconds += int64(interval / time.Second)
 		}
 		a.state.RemainingSeconds = int64(result.Remaining / time.Second)

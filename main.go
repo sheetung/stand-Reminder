@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"stand-reminder/internal/app"
 	"stand-reminder/internal/tray"
@@ -34,10 +37,10 @@ func main() {
 
 	go application.Run()
 
-	server := webui.NewServer(application)
+	server := &http.Server{Addr: webAddress, Handler: webui.NewServer(application).Handler()}
 	go func() {
 		log.Printf("web console ready: http://%s", webAddress)
-		if err := server.ListenAndServe(webAddress); err != nil {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("web server failed: %v", err)
 		}
 	}()
@@ -51,6 +54,16 @@ func main() {
 	}()
 
 	if err := tray.Run(controlCenterURL, application.Locale); err != nil {
-		log.Fatalf("tray failed: %v", err)
+		log.Printf("tray exited with error: %v", err)
 	}
+
+	// Graceful shutdown
+	log.Println("shutting down...")
+	application.Shutdown()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("web server shutdown: %v", err)
+	}
+	log.Println("shutdown complete")
 }

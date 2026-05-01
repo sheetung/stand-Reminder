@@ -125,6 +125,10 @@ func Open(dbPath string) (*Store, config.Config, error) {
 	return store, cfg, nil
 }
 
+func (s *Store) Close() error {
+	return s.db.Close()
+}
+
 func (s *Store) initSchema() error {
 	statements := []string{
 		`PRAGMA foreign_keys = ON;`,
@@ -320,11 +324,14 @@ func (s *Store) Summary(rangeKey string, now time.Time) (Summary, error) {
 		start = start.AddDate(0, 0, -19)
 	}
 
+	s.mu.Lock()
 	sessions, err := s.loadSessionsBetween(start, end)
 	if err != nil {
+		s.mu.Unlock()
 		return Summary{}, err
 	}
 	counts, err := s.loadEventCounts(start, end)
+	s.mu.Unlock()
 	if err != nil {
 		return Summary{}, err
 	}

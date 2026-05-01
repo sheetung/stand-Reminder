@@ -1,102 +1,65 @@
 package config
 
 import (
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
 )
 
-func TestLoadValidConfig(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	err := os.WriteFile(path, []byte(`{
-  "remind_after_minutes": 45,
-  "idle_reset_minutes": 5,
-  "check_interval_seconds": 5,
-  "notification_title": "Stand Reminder",
-  "notification_message": "Stretch"
-}`), 0o600)
-	if err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	cfg, err := Load(path)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-
-	if cfg.RemindAfterMinutes != 45 {
-		t.Fatalf("unexpected remind_after_minutes: %d", cfg.RemindAfterMinutes)
+func TestDefaultIsValid(t *testing.T) {
+	cfg := Default()
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("default config should be valid: %v", err)
 	}
 }
 
-func TestLoadInvalidJSON(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	err := os.WriteFile(path, []byte(`{invalid json`), 0o600)
-	if err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	_, err = Load(path)
-	if err == nil {
-		t.Fatal("expected parse error")
-	}
-
-	if !strings.Contains(err.Error(), "parse config") {
-		t.Fatalf("unexpected error: %v", err)
+func TestValidateRejectsZeroRemindAfter(t *testing.T) {
+	cfg := Default()
+	cfg.RemindAfterMinutes = 0
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for remind_after_minutes")
 	}
 }
 
-func TestLoadRejectsMissingField(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-
-	err := os.WriteFile(path, []byte(`{
-  "remind_after_minutes": 45,
-  "idle_reset_minutes": 5,
-  "check_interval_seconds": 5,
-  "notification_title": "",
-  "notification_message": "Stretch"
-}`), 0o600)
-	if err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-
-	_, err = Load(path)
-	if err == nil {
-		t.Fatal("expected validation error")
-	}
-
-	if !strings.Contains(err.Error(), "notification_title") {
-		t.Fatalf("unexpected error: %v", err)
+func TestValidateRejectsZeroIdleReset(t *testing.T) {
+	cfg := Default()
+	cfg.IdleResetMinutes = 0
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for idle_reset_minutes")
 	}
 }
 
-func TestSaveRoundTrip(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-	want := Config{
+func TestValidateRejectsZeroCheckInterval(t *testing.T) {
+	cfg := Default()
+	cfg.CheckIntervalSeconds = 0
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for check_interval_seconds")
+	}
+}
+
+func TestValidateRejectsEmptyTitle(t *testing.T) {
+	cfg := Default()
+	cfg.NotificationTitle = ""
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for empty notification_title")
+	}
+}
+
+func TestValidateRejectsEmptyMessage(t *testing.T) {
+	cfg := Default()
+	cfg.NotificationMessage = ""
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("expected validation error for empty notification_message")
+	}
+}
+
+func TestValidateAcceptsValidConfig(t *testing.T) {
+	cfg := Config{
 		RemindAfterMinutes:   30,
 		IdleResetMinutes:     6,
 		CheckIntervalSeconds: 4,
 		NotificationTitle:    "Stand Reminder",
 		NotificationMessage:  "Stretch",
 	}
-
-	if err := Save(path, want); err != nil {
-		t.Fatalf("save config: %v", err)
-	}
-
-	got, err := Load(path)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-
-	if got != want {
-		t.Fatalf("unexpected round trip config: %#v", got)
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("valid config rejected: %v", err)
 	}
 }
