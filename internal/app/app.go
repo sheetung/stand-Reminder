@@ -17,6 +17,7 @@ const (
 	statusManualPaused = "manual_paused"
 	statusBreakMode    = "break_mode"
 	breakDuration      = 10 * time.Minute
+	snoozeDuration     = 5 * time.Minute
 	autoPauseThreshold = 60 * time.Second
 )
 
@@ -69,6 +70,20 @@ func New(dbPath string, currentVersion string) (*App, error) {
 	}
 
 	n := notify.NewWindowsNotifier()
+	n.SetLocale(locale)
+
+	// Apply localized default notification text for zh-CN
+	if locale == "zh-CN" {
+		def := config.Default()
+		if cfg.NotificationTitle == def.NotificationTitle && cfg.NotificationMessage == def.NotificationMessage {
+			cfg.NotificationTitle = "久坐提醒"
+			cfg.NotificationMessage = "你已经坐了一段时间了，起来活动一下吧。"
+			if err := store.SaveConfig(cfg); err != nil {
+				return nil, err
+			}
+		}
+	}
+
 	app := &App{
 		cfg:      cfg,
 		detector: activity.NewDetector(),
@@ -244,12 +259,36 @@ func (a *App) SetLocale(locale string) error {
 
 	a.mu.Lock()
 	defer a.mu.Unlock()
+
+	prevLocale := a.locale
 	if locale == "en" || locale == "en-US" {
 		a.locale = "en-US"
 	} else {
 		a.locale = "zh-CN"
 	}
+
+	// Update notification defaults when locale changes and text hasn't been customized
+	if prevLocale != a.locale {
+		enDef := "You've been active for a while. Time to stand up and stretch."
+		zhDef := "你已经坐了一段时间了，起来活动一下吧。"
+		enTitle := "Stand Reminder"
+		zhTitle := "久坐提醒"
+
+		if a.locale == "zh-CN" && a.state.NotificationTitle == enTitle && a.state.NotificationMessage == enDef {
+			a.cfg.NotificationTitle = zhTitle
+			a.cfg.NotificationMessage = zhDef
+		} else if a.locale == "en-US" && a.state.NotificationTitle == zhTitle && a.state.NotificationMessage == zhDef {
+			a.cfg.NotificationTitle = enTitle
+			a.cfg.NotificationMessage = enDef
+		}
+		if err := a.store.SaveConfig(a.cfg); err != nil {
+			return err
+		}
+		a.rebuildLocked(a.cfg)
+	}
+
 	a.state.Locale = a.locale
+	a.notifier.SetLocale(a.locale)
 	return nil
 }
 
@@ -325,6 +364,25 @@ func (a *App) Resume() Snapshot {
 	return a.state
 }
 
+func (a *App) Snooze() Snapshot {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	now := time.Now()
+	a.paused = false
+	a.breakUntil = now.Add(snoozeDuration)
+	a.rebuildLocked(a.cfg)
+	a.state.Status = statusBreakMode
+	a.state.Paused = false
+	a.state.OnBreak = true
+	a.state.BreakEndsAt = a.breakUntil.Format(time.RFC3339)
+	a.state.IdleSeconds = 0
+	a.state.IdleAccumulatedSeconds = 0
+	a.state.AccumulatedSeconds = 0
+	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
+	a.state.UpdatedAt = now.Format(time.RFC3339)
+	return a.state
+}
+
 func (a *App) StartBreak() Snapshot {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -357,6 +415,7 @@ func (a *App) resetStateLocked(status string) {
 	a.state.AccumulatedSeconds = 0
 	a.state.RemainingSeconds = int64(time.Duration(a.cfg.RemindAfterMinutes) * time.Minute / time.Second)
 	a.state.Locale = a.locale
+a.notifier.SetLocale(a.locale)
 	a.state.UpdatedAt = time.Now().Format(time.RFC3339)
 }
 
@@ -373,4 +432,5 @@ func (a *App) rebuildLocked(cfg config.Config) {
 	a.state.NotificationTitle = cfg.NotificationTitle
 	a.state.NotificationMessage = cfg.NotificationMessage
 	a.state.Locale = a.locale
+a.notifier.SetLocale(a.locale)
 }

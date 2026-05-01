@@ -201,26 +201,38 @@ func (s *Server) handleTestNotification(w http.ResponseWriter, r *http.Request) 
 }
 
 func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+	switch r.Method {
+	case http.MethodPost:
+		var req actionRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+			return
+		}
 
-	var req actionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
-		return
-	}
-
-	switch req.Action {
-	case "pause":
-		writeJSON(w, http.StatusOK, s.app.Pause())
-	case "resume":
-		writeJSON(w, http.StatusOK, s.app.Resume())
-	case "break":
-		writeJSON(w, http.StatusOK, s.app.StartBreak())
+		switch req.Action {
+		case "pause":
+			writeJSON(w, http.StatusOK, s.app.Pause())
+		case "resume":
+			writeJSON(w, http.StatusOK, s.app.Resume())
+		case "break":
+			writeJSON(w, http.StatusOK, s.app.StartBreak())
+		case "snooze":
+			writeJSON(w, http.StatusOK, s.app.Snooze())
+		default:
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown action"})
+		}
+	case http.MethodGet:
+		action := r.URL.Query().Get("action")
+		switch action {
+		case "snooze":
+			s.app.Snooze()
+		case "break":
+			s.app.StartBreak()
+		}
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Stand Reminder</title></head><body><script>window.close()</script></body></html>`))
 	default:
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unknown action"})
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 

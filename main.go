@@ -23,12 +23,12 @@ const (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
 
-	exePath, err := os.Executable()
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		log.Fatalf("failed to resolve executable path: %v", err)
+		log.Fatalf("failed to get config directory: %v", err)
 	}
-	exeDir := filepath.Dir(exePath)
-	dbPath := filepath.Join(exeDir, "stand-reminder.db")
+	appDir := filepath.Join(configDir, "Stand Reminder")
+	dbPath := filepath.Join(appDir, "stand-reminder.db")
 
 	application, err := app.New(dbPath, CurrentVersion)
 	if err != nil {
@@ -67,3 +67,4 @@ func main() {
 	}
 	log.Println("shutdown complete")
 }
+

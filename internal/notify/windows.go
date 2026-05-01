@@ -25,6 +25,7 @@ const (
 type WindowsNotifier struct {
 	exePath    string
 	openURL    string
+	locale     string
 	shortcutOK bool
 	shortcutMu sync.Mutex
 }
@@ -36,6 +37,10 @@ func NewWindowsNotifier() WindowsNotifier {
 
 func (n *WindowsNotifier) SetOpenURL(url string) {
 	n.openURL = strings.TrimSpace(url)
+}
+
+func (n *WindowsNotifier) SetLocale(locale string) {
+	n.locale = locale
 }
 
 func (n *WindowsNotifier) Notify(title, message string) error {
@@ -205,11 +210,17 @@ $appID = $env:STAND_APP_ID
 $title = [System.Security.SecurityElement]::Escape($env:STAND_TITLE)
 $message = [System.Security.SecurityElement]::Escape($env:STAND_MESSAGE)
 $openUrl = $env:STAND_OPEN_URL
+$baseUrl = $env:STAND_BASE_URL
 $escapedUrl = [System.Security.SecurityElement]::Escape($openUrl)
+$escapedSnooze = [System.Security.SecurityElement]::Escape($baseUrl + '/api/action?action=snooze')
+$escapedBreak = [System.Security.SecurityElement]::Escape($baseUrl + '/api/action?action=break')
+$btnSnooze = [System.Security.SecurityElement]::Escape($env:STAND_BTN_SNOOZE)
+$btnBreak = [System.Security.SecurityElement]::Escape($env:STAND_BTN_BREAK)
+$btnOpen = [System.Security.SecurityElement]::Escape($env:STAND_BTN_OPEN_CENTER)
 
 $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual></toast>'
 if ($openUrl) {
-    $template = '<toast activationType="protocol" launch="' + $escapedUrl + '"><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="Open Control Center" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
+    $template = '<toast activationType="protocol" launch="' + $escapedUrl + '"><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="' + $btnSnooze + '" activationType="protocol" arguments="' + $escapedSnooze + '" /><action content="' + $btnBreak + '" activationType="protocol" arguments="' + $escapedBreak + '" /><action content="' + $btnOpen + '" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
 }
 
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
@@ -220,11 +231,36 @@ $notifier.Show($toast)
 `)
 
 	return runPowerShellWithTimeout(script, map[string]string{
-		"STAND_APP_ID":   appID,
-		"STAND_TITLE":    title,
-		"STAND_MESSAGE":  message,
-		"STAND_OPEN_URL": n.openURL,
+		"STAND_APP_ID":           appID,
+		"STAND_TITLE":            title,
+		"STAND_MESSAGE":          message,
+		"STAND_OPEN_URL":         n.openURL,
+		"STAND_BASE_URL":         n.openURL,
+		"STAND_BTN_SNOOZE":       n.localizedBtnSnooze(),
+		"STAND_BTN_BREAK":        n.localizedBtnBreak(),
+		"STAND_BTN_OPEN_CENTER":  n.localizedBtnOpenCenter(),
 	}, showToastTimeout)
+}
+
+func (n *WindowsNotifier) localizedBtnSnooze() string {
+	if n.locale == "zh-CN" {
+		return "延迟 5 分钟"
+	}
+	return "Snooze 5 min"
+}
+
+func (n *WindowsNotifier) localizedBtnBreak() string {
+	if n.locale == "zh-CN" {
+		return "我已起身活动"
+	}
+	return "I Took a Break"
+}
+
+func (n *WindowsNotifier) localizedBtnOpenCenter() string {
+	if n.locale == "zh-CN" {
+		return "打开控制中心"
+	}
+	return "Open Control Center"
 }
 
 func runPowerShellWithTimeout(script string, env map[string]string, timeout time.Duration) error {
