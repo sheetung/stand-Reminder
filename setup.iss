@@ -2,7 +2,9 @@
 ; Uses Inno Setup 6.x
 
 #define MyAppName "Stand Reminder"
-#define MyAppVersion "0.6.3"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.7.1"
+#endif
 #define MyAppPublisher "sheetung"
 #define MyAppURL "https://github.com/sheetung/stand-Reminder"
 #define MyAppExeName "stand-reminder.exe"
