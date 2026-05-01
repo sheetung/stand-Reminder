@@ -68,5 +68,10 @@
     "breakDone":  "Break finished. Click Start / Resume when you want to continue counting.",
     "trayOpenConsole":  "Open Control Center",
     "trayLaunchAtStartup":  "Launch at Startup",
-    "trayExit":  "Exit"
+    "trayExit":  "Exit",
+    "notifyUnknownError":  "Notification error",
+    "notifyTimeout":  "Notification timed out. Windows toast may not be available on this system.",
+    "notifyShortcutFailed":  "Notification shortcut setup failed. Try running as administrator.",
+    "notifyPowershellFailed":  "Notification via PowerShell failed. Check your PowerShell execution policy.",
+    "notifyComFailed":  "Windows Toast notification component is not available on this system."
 }

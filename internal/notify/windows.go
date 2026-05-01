@@ -3,6 +3,7 @@
 package notify
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
 	"os"
@@ -11,16 +12,21 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 	"unicode/utf16"
 )
 
-const appID = "StandReminder.App"
+const (
+	appID            = "StandReminder.App"
+	shortcutTimeout  = 30 * time.Second
+	showToastTimeout = 15 * time.Second
+)
 
 type WindowsNotifier struct {
-	exePath      string
-	openURL      string
-	shortcutOnce sync.Once
-	shortcutErr  error
+	exePath    string
+	openURL    string
+	shortcutOK bool
+	shortcutMu sync.Mutex
 }
 
 func NewWindowsNotifier() WindowsNotifier {
@@ -34,7 +40,7 @@ func (n *WindowsNotifier) SetOpenURL(url string) {
 
 func (n *WindowsNotifier) Notify(title, message string) error {
 	if err := n.ensureShortcut(); err != nil {
-		return err
+		return fmt.Errorf("shortcut setup failed: %w", err)
 	}
 
 	return n.showToast(title, message)
@@ -58,9 +64,15 @@ func resolveNotificationTarget() (string, error) {
 }
 
 func (n *WindowsNotifier) ensureShortcut() error {
-	n.shortcutOnce.Do(func() {
-		shortcutPath := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Stand Reminder.lnk")
-		script := strings.TrimSpace(`
+	n.shortcutMu.Lock()
+	if n.shortcutOK {
+		n.shortcutMu.Unlock()
+		return nil
+	}
+	n.shortcutMu.Unlock()
+
+	shortcutPath := filepath.Join(os.Getenv("APPDATA"), "Microsoft", "Windows", "Start Menu", "Programs", "Stand Reminder.lnk")
+	script := strings.TrimSpace(`
 $ErrorActionPreference = 'Stop'
 $ShortcutPath = $env:STAND_SHORTCUT_PATH
 $TargetPath = $env:STAND_TARGET_PATH
@@ -168,14 +180,18 @@ if (-not (Test-Path $directory)) {
 [ShortcutHelper]::CreateShortcut($ShortcutPath, $TargetPath, $AppID)
 `)
 
-		n.shortcutErr = runPowerShell(script, map[string]string{
-			"STAND_SHORTCUT_PATH": shortcutPath,
-			"STAND_TARGET_PATH":   n.exePath,
-			"STAND_APP_ID":        appID,
-		})
-	})
+	err := runPowerShellWithTimeout(script, map[string]string{
+		"STAND_SHORTCUT_PATH": shortcutPath,
+		"STAND_TARGET_PATH":   n.exePath,
+		"STAND_APP_ID":        appID,
+	}, shortcutTimeout)
 
-	return n.shortcutErr
+	n.shortcutMu.Lock()
+	if err == nil {
+		n.shortcutOK = true
+	}
+	n.shortcutMu.Unlock()
+	return err
 }
 
 func (n *WindowsNotifier) showToast(title, message string) error {
@@ -203,29 +219,36 @@ $notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNoti
 $notifier.Show($toast)
 `)
 
-	return runPowerShell(script, map[string]string{
+	return runPowerShellWithTimeout(script, map[string]string{
 		"STAND_APP_ID":   appID,
 		"STAND_TITLE":    title,
 		"STAND_MESSAGE":  message,
 		"STAND_OPEN_URL": n.openURL,
-	})
+	}, showToastTimeout)
 }
 
-func runPowerShell(script string, env map[string]string) error {
+func runPowerShellWithTimeout(script string, env map[string]string, timeout time.Duration) error {
 	encoded := encodePowerShell(script)
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
+	ctx := context.Background()
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	cmd.Env = append(os.Environ(), flattenEnv(env)...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("powershell timed out after %v", timeout)
+		}
 		trimmed := strings.TrimSpace(string(output))
 		if trimmed != "" {
 			return fmt.Errorf("powershell failed: %w: %s", err, trimmed)
 		}
-
 		return fmt.Errorf("powershell failed: %w", err)
 	}
-
 	return nil
 }
 

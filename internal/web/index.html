@@ -281,6 +281,37 @@
     color: var(--accent-strong);
   }
 
+  .notify-error {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(180, 35, 24, 0.08);
+    color: var(--danger);
+    font-size: 13px;
+    line-height: 1.45;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .notify-error::before {
+    content: "!";
+    flex: 0 0 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notify-error.hidden {
+    display: none;
+  }
+
   .metric span,
   .summary-card span {
     display: block;
@@ -586,6 +617,7 @@
             <div class="metric"><span data-i18n="metricAccumulated"></span><strong id="accumulatedValue">--</strong></div>
             <div class="metric"><span data-i18n="metricIdleAccumulated"></span><strong id="idleValue">--</strong></div>
           </div>
+          <div id="notifyError" class="notify-error hidden"></div>
         </article>
       </section>
 
@@ -691,6 +723,15 @@
 
     function t(key) {
       return i18n[currentLang]?.[key] || key;
+    }
+
+    function friendlyNotifyError(raw) {
+      const low = raw.toLowerCase();
+      if (low.includes('timed out')) return t('notifyTimeout');
+      if (low.includes('shortcut')) return t('notifyShortcutFailed');
+      if (low.includes('powershell failed')) return t('notifyPowershellFailed');
+      if (low.includes('class not registered')) return t('notifyComFailed');
+      return t('notifyUnknownError') + ' (' + raw + ')';
     }
 
     async function ensureLocale(lang) {
@@ -833,6 +874,16 @@
         breakDoneNotified = false;
       }
       updateBreakTimer();
+
+      // Show notification error if any
+      const notifyError = document.getElementById('notifyError');
+      if (data.notification_error) {
+        const msg = friendlyNotifyError(data.notification_error);
+        notifyError.textContent = msg;
+        notifyError.classList.remove('hidden');
+      } else {
+        notifyError.classList.add('hidden');
+      }
     }
 
     function setStatsHover(bar) {

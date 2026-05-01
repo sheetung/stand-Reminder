@@ -35,6 +35,7 @@ type Snapshot struct {
 	CheckIntervalSeconds   int    `json:"check_interval_seconds"`
 	NotificationTitle      string `json:"notification_title"`
 	NotificationMessage    string `json:"notification_message"`
+	NotificationError      string `json:"notification_error"`
 	Locale                 string `json:"locale"`
 	Paused                 bool   `json:"paused"`
 	OnBreak                bool   `json:"on_break"`
@@ -77,7 +78,7 @@ func New(dbPath string, currentVersion string) (*App, error) {
 	}
 	app.rebuildLocked(cfg)
 	app.resetStateLocked(string(reminder.StateIdle))
-	
+
 	// Initialize version info (async check for updates)
 	go func() {
 		updateInfo := version.CheckUpdate(currentVersion)
@@ -89,7 +90,7 @@ func New(dbPath string, currentVersion string) (*App, error) {
 		app.state.ReleaseURL = updateInfo.ReleaseURL
 		app.mu.Unlock()
 	}()
-	
+
 	return app, nil
 }
 
@@ -105,18 +106,16 @@ func (a *App) Stats(rangeKey string) (stats.Summary, error) {
 
 func (a *App) Run() {
 	for {
-		a.mu.RLock()
+		a.mu.Lock()
 		interval := time.Duration(a.cfg.CheckIntervalSeconds) * time.Second
 		engine := a.engine
 		cfg := a.cfg
 		paused := a.paused
 		breakUntil := a.breakUntil
-		a.mu.RUnlock()
-
 		now := time.Now()
+
 		if !breakUntil.IsZero() {
 			if now.Before(breakUntil) {
-				a.mu.Lock()
 				a.state.Status = statusBreakMode
 				a.state.Paused = false
 				a.state.OnBreak = true
@@ -130,10 +129,9 @@ func (a *App) Run() {
 				continue
 			}
 
-			a.mu.Lock()
 			a.breakUntil = time.Time{}
 			a.paused = true
-			a.rebuildLocked(a.cfg)
+			a.rebuildLocked(cfg)
 			a.resetStateLocked(statusManualPaused)
 			a.mu.Unlock()
 			time.Sleep(interval)
@@ -141,7 +139,6 @@ func (a *App) Run() {
 		}
 
 		if paused {
-			a.mu.Lock()
 			a.state.Status = statusManualPaused
 			a.state.Paused = true
 			a.state.OnBreak = false
@@ -154,6 +151,7 @@ func (a *App) Run() {
 			time.Sleep(interval)
 			continue
 		}
+		a.mu.Unlock()
 
 		idle, err := a.detector.IdleDuration()
 		if err != nil {
@@ -201,6 +199,13 @@ func (a *App) Run() {
 			}
 			if err := a.notifier.Notify(cfg.NotificationTitle, cfg.NotificationMessage); err != nil {
 				log.Printf("failed to send notification: %v", err)
+				a.mu.Lock()
+				a.state.NotificationError = err.Error()
+				a.mu.Unlock()
+			} else {
+				a.mu.Lock()
+				a.state.NotificationError = ""
+				a.mu.Unlock()
 			}
 		case reminder.StateIdleReset:
 			log.Printf("idle reset: idle=%s previous_accumulated=%s", idle.Round(time.Second), result.PreviousAccumulated.Round(time.Second))
@@ -264,14 +269,30 @@ func (a *App) TestNotification() error {
 	a.mu.RLock()
 	cfg := a.cfg
 	a.mu.RUnlock()
-	return a.notifier.Notify(cfg.NotificationTitle, cfg.NotificationMessage)
+	err := a.notifier.Notify(cfg.NotificationTitle, cfg.NotificationMessage)
+	if err != nil {
+		a.mu.Lock()
+		a.state.NotificationError = err.Error()
+		a.mu.Unlock()
+	} else {
+		a.mu.Lock()
+		a.state.NotificationError = ""
+		a.mu.Unlock()
+	}
+	return err
 }
 
 func (a *App) NotifyStarted(controlCenterURL string) error {
-	return a.notifier.Notify(
+	err := a.notifier.Notify(
 		"Stand Reminder Started",
 		"Running in the system tray. Click the tray icon to open Control Center: "+controlCenterURL,
 	)
+	if err != nil {
+		a.mu.Lock()
+		a.state.NotificationError = err.Error()
+		a.mu.Unlock()
+	}
+	return err
 }
 
 func (a *App) Pause() Snapshot {

@@ -68,5 +68,10 @@
     "breakDone":  "休息已结束，请手动点击“开始 / 恢复”继续计时。",
     "trayOpenConsole":  "打开控制中心",
     "trayLaunchAtStartup":  "开机自启",
-    "trayExit":  "退出"
+    "trayExit":  "退出",
+    "notifyUnknownError":  "通知异常",
+    "notifyTimeout":  "通知超时，当前系统可能不支持 Toast 通知。",
+    "notifyShortcutFailed":  "通知快捷方式创建失败，可尝试以管理员身份运行。",
+    "notifyPowershellFailed":  "PowerShell 通知执行失败，请检查 PowerShell 执行策略。",
+    "notifyComFailed":  "当前系统不支持的 Windows Toast 通知组件。"
 }
