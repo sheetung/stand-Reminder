@@ -2,7 +2,7 @@
 ; Uses Inno Setup 6.x
 
 #define MyAppName "Stand Reminder"
-#define MyAppVersion "0.6.2"
+#define MyAppVersion "0.6.3"
 #define MyAppPublisher "sheetung"
 #define MyAppURL "https://github.com/sheetung/stand-Reminder"
 #define MyAppExeName "stand-reminder.exe"
@@ -26,10 +26,6 @@ WizardStyle=modern
 PrivilegesRequired=admin
 UninstallDisplayIcon={app}\{#MyAppExeName}
 ArchitecturesInstallIn64BitMode=x64compatible
-
-[Languages]
-Name: "en"; MessagesFile: "compiler:Default.isl"
-Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"

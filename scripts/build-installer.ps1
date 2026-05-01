@@ -1,9 +1,10 @@
 param(
-    [string]$Version = "0.6.2"
+    [string]$Version = "0.6.3"
 )
 
 $ErrorActionPreference = "Stop"
-$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$ProjectRoot = Split-Path -Parent $ScriptDir
 $ExePath = Join-Path $ProjectRoot "stand-reminder.exe"
 $IssPath = Join-Path $ProjectRoot "setup.iss"
 $OutputDir = Join-Path $ProjectRoot "dist"
@@ -19,6 +20,9 @@ New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 $iscc = Get-Command "ISCC.exe" -ErrorAction SilentlyContinue
 if (-not $iscc) {
     $isccPath = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    if (-not (Test-Path $isccPath)) {
+        $isccPath = "${env:LOCALAPPDATA}\Programs\Inno Setup 6\ISCC.exe"
+    }
     if (-not (Test-Path $isccPath)) {
         Write-Error "Inno Setup not found. Install from https://jrsoftware.org/isdl.php"
         exit 1

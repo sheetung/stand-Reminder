@@ -50,18 +50,21 @@ jobs:
         shell: pwsh
         run: .\scripts\embed-icon.ps1 -ExePath "${{ steps.meta.outputs.exe_name }}" -IconPath ".\assets\stand-reminder.ico"
 
-      - name: Prepare release bundle
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          echo "ISCC_PATH=${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" >> $env:GITHUB_ENV
+
+      - name: Build installer
         if: github.ref_type == 'tag'
         shell: pwsh
         run: |
-          $bundleDir = "stand-Reminder"
-          if (Test-Path $bundleDir) {
-            Remove-Item -LiteralPath $bundleDir -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $bundleDir | Out-Null
-          Copy-Item -LiteralPath "${{ steps.meta.outputs.exe_name }}" -Destination (Join-Path $bundleDir "stand-reminder.exe")
-          Copy-Item -LiteralPath "README.md" -Destination (Join-Path $bundleDir "README.md")
-          Compress-Archive -Path $bundleDir -DestinationPath "${{ steps.meta.outputs.zip_name }}" -Force
+          $version = '${{ github.ref_name }}' -replace '^v', ''
+          $issPath = "setup.iss"
+          $outputDir = "dist"
+          New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+          & "$env:ISCC_PATH" ("/O$((Get-Item $outputDir).FullName)", "/DMyAppVersion=$version", $issPath)
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -69,7 +72,7 @@ jobs:
           name: stand-reminder-${{ steps.meta.outputs.version }}-windows
           path: |
             ${{ steps.meta.outputs.exe_name }}
-            ${{ steps.meta.outputs.zip_name }}
+            dist\*-Setup.exe
           if-no-files-found: ignore
 
       - name: Generate changelog
@@ -79,17 +82,17 @@ jobs:
         run: |
           $currentTag = '${{ github.ref_name }}'
           $previousTag = git describe --tags --abbrev=0 "$currentTag^" 2>$null
-          
+
           if ($LASTEXITCODE -ne 0 -or -not $previousTag) {
             $commits = @(git log --pretty=format:"- %s" --max-count=20 2>$null)
           } else {
             $commits = @(git log "$previousTag..$currentTag" --pretty=format:"- %s" 2>$null)
           }
-          
+
           if (-not $commits) {
             $commits = @("- Initial release")
           }
-          
+
           $body = @(
             "## 更新内容"
             ""
@@ -104,4 +107,4 @@ jobs:
           name: Stand Reminder ${{ github.ref_name }}
           body_path: CHANGELOG.tmp
           files: |
-            ${{ steps.meta.outputs.zip_name }}
+            dist\*-Setup.exe

@@ -17,7 +17,7 @@ const (
 	webAddress = "127.0.0.1:47831"
 	// CurrentVersion is the application version
 	// This is compared with the latest GitHub release to check for updates
-	CurrentVersion = "v0.6.2"
+	CurrentVersion = "v0.6.3"
 )
 
 func main() {
