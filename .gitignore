@@ -4,6 +4,7 @@
 .codex/
 release/
 stand-reminder.exe
+dist/
 config.json
 stats.json
 AGENTS.md
