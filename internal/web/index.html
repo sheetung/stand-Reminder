@@ -857,6 +857,13 @@
         eyebrowVersion.textContent = appVersion;
       }
 
+      // Update has-update indicator
+      if (data.has_update) {
+        eyebrowVersion.classList.add('has-update');
+      } else {
+        eyebrowVersion.classList.remove('has-update');
+      }
+
       const chip = document.getElementById('statusChip');
       chip.textContent = prettyStatus(data.status);
       chip.className = `status-chip ${data.status || ''}`;
@@ -1371,12 +1378,7 @@
       currentLang = normalizeLang(data.locale);
       applyLanguage();
       renderStatus(data);
-      
-      // Check for update only once at startup
-      if (data.has_update) {
-        eyebrowVersion.classList.add('has-update');
-      }
-      
+
       await refreshStats();
       setInterval(() => refresh().catch(() => {}), 2000);
       setInterval(updateBreakTimer, 1000);
