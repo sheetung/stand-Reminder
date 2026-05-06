@@ -331,7 +331,7 @@ func (a *App) TestNotification() error {
 func (a *App) NotifyStarted(controlCenterURL string) error {
 	err := a.notifier.Notify(
 		"Stand Reminder Started",
-		"Running in the system tray. Click the tray icon to open Control Center: "+controlCenterURL,
+		"Running in the system tray. Click the tray icon to open Control Center.",
 	)
 	if err != nil {
 		a.mu.Lock()

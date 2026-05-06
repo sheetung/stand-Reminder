@@ -61,7 +61,7 @@ $btnOpen = [System.Security.SecurityElement]::Escape($env:STAND_BTN_OPEN_CENTER)
 
 $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual></toast>'
 if ($openUrl) {
-    $template = '<toast activationType="protocol" launch="' + $escapedUrl + '"><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="' + $btnSnooze + '" activationType="protocol" arguments="' + $escapedSnooze + '" /><action content="' + $btnBreak + '" activationType="protocol" arguments="' + $escapedBreak + '" /><action content="' + $btnOpen + '" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
+    $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="' + $btnSnooze + '" activationType="foreground" arguments="' + $escapedSnooze + '" /><action content="' + $btnBreak + '" activationType="foreground" arguments="' + $escapedBreak + '" /><action content="' + $btnOpen + '" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
 }
 
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
