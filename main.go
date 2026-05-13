@@ -65,8 +65,16 @@ func main() {
 		}
 	}()
 
-	if err := tray.Run(controlCenterURL, application.Locale, func() string {
-		return application.Snapshot().Status
+	if err := tray.Run(controlCenterURL, application.Locale, func() tray.StateInfo {
+		s := application.Snapshot()
+		return tray.StateInfo{
+			Status:             s.Status,
+			IdleSeconds:        s.IdleSeconds,
+			AccumulatedSeconds: s.AccumulatedSeconds,
+			RemainingSeconds:   s.RemainingSeconds,
+			OnBreak:            s.OnBreak,
+			Paused:             s.Paused,
+		}
 	}); err != nil {
 		log.Printf("tray exited with error: %v", err)
 	}

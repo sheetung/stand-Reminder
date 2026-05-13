@@ -3,12 +3,7 @@
 package tray
 
 import (
-	"bytes"
-	"encoding/binary"
 	"fmt"
-	"image"
-	"image/color"
-	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,6 +13,7 @@ import (
 	"unsafe"
 
 	appassets "stand-reminder/assets"
+	"stand-reminder/internal/deeplink"
 	webui "stand-reminder/internal/web"
 
 	"golang.org/x/sys/windows/registry"
@@ -81,10 +77,12 @@ const (
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
 	nifTip     = 0x00000004
+	nifShowTip = 0x00000080
 
 	notifVersion4 = 4
 
 	mfString    = 0x00000000
+	mfGrayed    = 0x00000001
 	mfChecked   = 0x00000008
 	mfSeparator = 0x00000800
 
@@ -97,6 +95,9 @@ const (
 	menuOpen      = 1001
 	menuAutoStart = 1002
 	menuExit      = 1003
+	menuPause     = 1004
+	menuResume    = 1005
+	menuBreak     = 1006
 
 	trayRefreshTimerID = 1
 	trayRefreshMS      = 1000
@@ -158,25 +159,37 @@ type notifyIconData struct {
 var (
 	trayURL               string
 	trayLocale            func() string
-	trayStatus            func() string
+	trayState             func() StateInfo
 	trayIcon              uintptr
 	trayIcons             map[string]uintptr
 	trayStatusCached      string
+	trayTooltipCached     string
 	taskbarCreatedMessage uint32
 	trayProc              = syscall.NewCallback(wndProc)
 	classNamePtr          = syscall.StringToUTF16Ptr("StandReminderTrayWindow")
 )
 
-func Run(url string, localeProvider func() string, statusProvider func() string) error {
+type StateInfo struct {
+	Status             string
+	IdleSeconds        int64
+	AccumulatedSeconds int64
+	RemainingSeconds   int64
+	OnBreak            bool
+	Paused             bool
+}
+
+func Run(url string, localeProvider func() string, stateProvider func() StateInfo) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	trayURL = url
 	trayLocale = localeProvider
-	trayStatus = statusProvider
+	trayState = stateProvider
 	trayIcons = loadTrayIcons()
-	trayStatusCached = currentStatus()
+	state := currentState()
+	trayStatusCached = state.Status
 	trayIcon = iconForStatus(trayStatusCached)
+	trayTooltipCached = currentTooltip(state)
 	taskbarCreatedMessage = registerTaskbarCreatedMessage()
 
 	cursor, _, _ := procLoadCursorW.Call(0, idcArrow)
@@ -213,7 +226,7 @@ func Run(url string, localeProvider func() string, statusProvider func() string)
 		return fmt.Errorf("CreateWindowExW failed: %w", err)
 	}
 
-	if err := addTrayIcon(hwnd, trayIcon); err != nil {
+	if err := addTrayIcon(hwnd, trayIcon, trayTooltipCached); err != nil {
 		return err
 	}
 	defer deleteTrayIcon(hwnd)
@@ -238,8 +251,10 @@ func Run(url string, localeProvider func() string, statusProvider func() string)
 
 func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 	if taskbarCreatedMessage != 0 && uint32(msgID) == taskbarCreatedMessage {
-		trayIcon = iconForStatus(currentStatus())
-		_ = addTrayIcon(hwnd, trayIcon)
+		state := currentState()
+		trayIcon = iconForStatus(state.Status)
+		trayTooltipCached = currentTooltip(state)
+		_ = addTrayIcon(hwnd, trayIcon, trayTooltipCached)
 		return 0
 	}
 
@@ -257,6 +272,12 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 		switch uint32(wParam & 0xffff) {
 		case menuOpen:
 			openBrowser(trayURL)
+		case menuPause:
+			_ = invokeTrayAction("pause")
+		case menuResume:
+			_ = invokeTrayAction("resume")
+		case menuBreak:
+			_ = invokeTrayAction("break")
 		case menuAutoStart:
 			_ = toggleAutoStart()
 		case menuExit:
@@ -281,15 +302,15 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 	return ret
 }
 
-func addTrayIcon(hwnd, icon uintptr) error {
+func addTrayIcon(hwnd, icon uintptr, tip string) error {
 	var nid notifyIconData
 	nid.CbSize = uint32(unsafe.Sizeof(nid))
 	nid.HWnd = hwnd
 	nid.UID = 1
-	nid.UFlags = nifMessage | nifIcon | nifTip
+	nid.UFlags = nifMessage | nifIcon | nifTip | nifShowTip
 	nid.UCallbackMessage = wmTrayCallback
 	nid.HIcon = icon
-	copy(nid.SzTip[:], syscall.StringToUTF16("Stand Reminder"))
+	copyTooltip(nid.SzTip[:], tip)
 
 	ret, _, err := procShellNotifyIconW.Call(nimAdd, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
@@ -309,13 +330,14 @@ func deleteTrayIcon(hwnd uintptr) {
 	procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&nid)))
 }
 
-func updateTrayIcon(hwnd, icon uintptr) error {
+func updateTray(hwnd, icon uintptr, tip string) error {
 	var nid notifyIconData
 	nid.CbSize = uint32(unsafe.Sizeof(nid))
 	nid.HWnd = hwnd
 	nid.UID = 1
-	nid.UFlags = nifIcon
+	nid.UFlags = nifIcon | nifTip | nifShowTip
 	nid.HIcon = icon
+	copyTooltip(nid.SzTip[:], tip)
 	ret, _, err := procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&nid)))
 	if ret == 0 {
 		return fmt.Errorf("Shell_NotifyIconW modify failed: %w", err)
@@ -331,11 +353,20 @@ func showMenu(hwnd uintptr) {
 	defer procDestroyMenu.Call(menu)
 
 	locale := currentLocale()
+	state := currentState()
 	openLabel := webui.LocaleText(locale, "trayOpenConsole", "Open Control Center")
+	pauseLabel := webui.LocaleText(locale, "btnPause", "Pause")
+	resumeLabel := webui.LocaleText(locale, "btnResume", "Start / Resume")
+	breakLabel := webui.LocaleText(locale, "btnBreak", "I Took a Break")
 	autoStartLabel := webui.LocaleText(locale, "trayLaunchAtStartup", "Launch at Startup")
 	exitLabel := webui.LocaleText(locale, "trayExit", "Exit")
 
 	procAppendMenuW.Call(menu, mfString, menuOpen, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(openLabel))))
+	procAppendMenuW.Call(menu, mfSeparator, 0, 0)
+	procAppendMenuW.Call(menu, actionMenuFlags(canPause(state)), menuPause, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(pauseLabel))))
+	procAppendMenuW.Call(menu, actionMenuFlags(canResume(state)), menuResume, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(resumeLabel))))
+	procAppendMenuW.Call(menu, actionMenuFlags(canBreak(state)), menuBreak, uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(breakLabel))))
+	procAppendMenuW.Call(menu, mfSeparator, 0, 0)
 
 	autoStartFlags := uintptr(mfString)
 	enabled, err := isAutoStartEnabled()
@@ -453,6 +484,29 @@ func openBrowser(url string) {
 	_ = exec.Command("rundll32.exe", "url.dll,FileProtocolHandler", url).Start()
 }
 
+func invokeTrayAction(action string) error {
+	return deeplink.ForwardAction(trayURL, action)
+}
+
+func actionMenuFlags(enabled bool) uintptr {
+	if enabled {
+		return mfString
+	}
+	return mfString | mfGrayed
+}
+
+func canPause(state StateInfo) bool {
+	return !state.Paused && !state.OnBreak
+}
+
+func canResume(state StateInfo) bool {
+	return state.Paused || state.OnBreak
+}
+
+func canBreak(state StateInfo) bool {
+	return !state.OnBreak
+}
+
 func loadTrayIcon() uintptr {
 	iconPath, err := writeTempIconFile(appassets.StandReminderICO)
 	if err == nil {
@@ -469,14 +523,14 @@ func loadTrayIcon() uintptr {
 
 func loadTrayIcons() map[string]uintptr {
 	icons := map[string]uintptr{
-		"":                   loadColoredTrayIcon(color.RGBA{30, 30, 30, 255}),
-		"active":             loadColoredTrayIcon(color.RGBA{25, 25, 25, 255}),
-		"paused":             loadColoredTrayIcon(color.RGBA{128, 128, 128, 255}),
-		"manual_paused":      loadColoredTrayIcon(color.RGBA{128, 128, 128, 255}),
-		"break_mode":         loadColoredTrayIcon(color.RGBA{47, 109, 246, 255}),
-		"idle":               loadColoredTrayIcon(color.RGBA{90, 90, 90, 255}),
-		"idle_reset":         loadColoredTrayIcon(color.RGBA{36, 142, 92, 255}),
-		"reminder_triggered": loadColoredTrayIcon(color.RGBA{220, 52, 52, 255}),
+		"":                   loadTrayIconFromBytes(appassets.StandReminderBlackICO),
+		"active":             loadTrayIconFromBytes(appassets.StandReminderBlackICO),
+		"paused":             loadTrayIconFromBytes(appassets.StandReminderGrayICO),
+		"manual_paused":      loadTrayIconFromBytes(appassets.StandReminderGrayICO),
+		"break_mode":         loadTrayIconFromBytes(appassets.StandReminderBlueICO),
+		"idle":               loadTrayIconFromBytes(appassets.StandReminderDarkGrayICO),
+		"idle_reset":         loadTrayIconFromBytes(appassets.StandReminderGreenICO),
+		"reminder_triggered": loadTrayIconFromBytes(appassets.StandReminderRedICO),
 	}
 	for key, icon := range icons {
 		if icon == 0 {
@@ -500,26 +554,150 @@ func iconForStatus(status string) uintptr {
 	return loadTrayIcon()
 }
 
-func currentStatus() string {
-	if trayStatus == nil {
-		return "active"
+func currentState() StateInfo {
+	if trayState == nil {
+		return StateInfo{Status: "active"}
 	}
-	return strings.TrimSpace(trayStatus())
+	state := trayState()
+	state.Status = strings.TrimSpace(state.Status)
+	if state.Status == "" {
+		state.Status = "active"
+	}
+	return state
 }
 
 func refreshTrayIcon(hwnd uintptr) {
-	status := currentStatus()
-	if status == trayStatusCached {
+	state := currentState()
+	status := state.Status
+	tip := currentTooltip(state)
+	if status == trayStatusCached && tip == trayTooltipCached {
 		return
 	}
 	icon := iconForStatus(status)
 	if icon == 0 {
 		return
 	}
-	if err := updateTrayIcon(hwnd, icon); err == nil {
+	if err := updateTray(hwnd, icon, tip); err == nil {
 		trayStatusCached = status
+		trayTooltipCached = tip
 		trayIcon = icon
 	}
+}
+
+func copyTooltip(dst []uint16, tip string) {
+	copy(dst, syscall.StringToUTF16(truncateTooltip(tip)))
+}
+
+func truncateTooltip(tip string) string {
+	runes := []rune(strings.TrimSpace(tip))
+	if len(runes) > 63 {
+		return string(runes[:63])
+	}
+	return string(runes)
+}
+
+func currentTooltip(state StateInfo) string {
+	locale := currentLocale()
+	label := localizedStatus(locale, state.Status)
+	switch state.Status {
+	case "break_mode":
+		return fmt.Sprintf("Stand Reminder | %s %s", label, formatClockShort(state.RemainingSeconds))
+	case "reminder_triggered":
+		return fmt.Sprintf("Stand Reminder | %s %s", label, formatAccumulated(locale, state.AccumulatedSeconds))
+	case "manual_paused", "paused":
+		return fmt.Sprintf("Stand Reminder | %s %s", label, formatAccumulated(locale, state.AccumulatedSeconds))
+	case "idle", "idle_reset":
+		return fmt.Sprintf("Stand Reminder | %s %s", label, formatIdle(locale, state.IdleSeconds))
+	default:
+		return fmt.Sprintf("Stand Reminder | %s %s %s", label, formatAccumulated(locale, state.AccumulatedSeconds), formatRemaining(locale, state.RemainingSeconds))
+	}
+}
+
+func localizedStatus(locale, status string) string {
+	isEN := locale == "en" || locale == "en-US"
+	switch status {
+	case "active":
+		if isEN {
+			return "Active"
+		}
+		return "正常"
+	case "paused":
+		if isEN {
+			return "Auto Paused"
+		}
+		return "自动暂停"
+	case "manual_paused":
+		if isEN {
+			return "Paused"
+		}
+		return "已暂停"
+	case "break_mode":
+		if isEN {
+			return "On Break"
+		}
+		return "休息中"
+	case "idle":
+		if isEN {
+			return "Idle"
+		}
+		return "空闲中"
+	case "idle_reset":
+		if isEN {
+			return "Idle Reset"
+		}
+		return "空闲重置"
+	case "reminder_triggered":
+		if isEN {
+			return "Time to Rest"
+		}
+		return "该休息了"
+	default:
+		if isEN {
+			return "Active"
+		}
+		return "正常"
+	}
+}
+
+func formatMinutes(locale string, seconds int64) string {
+	if seconds < 0 {
+		seconds = 0
+	}
+	minutes := seconds / 60
+	if locale == "en" || locale == "en-US" {
+		return fmt.Sprintf("%dm", minutes)
+	}
+	return fmt.Sprintf("%d分钟", minutes)
+}
+
+func formatAccumulated(locale string, seconds int64) string {
+	if locale == "en" || locale == "en-US" {
+		return "Elapsed " + formatMinutes(locale, seconds)
+	}
+	return "已计时" + formatMinutes(locale, seconds)
+}
+
+func formatRemaining(locale string, seconds int64) string {
+	if locale == "en" || locale == "en-US" {
+		return "Left " + formatMinutes(locale, seconds)
+	}
+	return "剩余" + formatMinutes(locale, seconds)
+}
+
+func formatIdle(locale string, seconds int64) string {
+	if locale == "en" || locale == "en-US" {
+		return "Idle " + formatClockShort(seconds)
+	}
+	return "空闲" + formatClockShort(seconds)
+}
+
+func formatClockShort(seconds int64) string {
+	if seconds < 0 {
+		seconds = 0
+	}
+	minutes := seconds / 60
+	remainSeconds := seconds % 60
+	return fmt.Sprintf("%02d:%02d", minutes, remainSeconds)
 }
 
 func destroyTrayIcons() {
@@ -531,9 +709,8 @@ func destroyTrayIcons() {
 	trayIcons = nil
 }
 
-func loadColoredTrayIcon(fill color.RGBA) uintptr {
-	data, err := generateColoredTrayICO(fill)
-	if err != nil {
+func loadTrayIconFromBytes(data []byte) uintptr {
+	if len(data) == 0 {
 		return 0
 	}
 	iconPath, err := writeTempIconFile(data)
@@ -544,90 +721,6 @@ func loadColoredTrayIcon(fill color.RGBA) uintptr {
 	ptr := syscall.StringToUTF16Ptr(iconPath)
 	icon, _, _ := procLoadImageW.Call(0, uintptr(unsafe.Pointer(ptr)), imageIcon, 0, 0, lrLoadFromFile|lrDefaultSize)
 	return icon
-}
-
-func generateColoredTrayICO(fill color.RGBA) ([]byte, error) {
-	const size = 32
-	img := image.NewNRGBA(image.Rect(0, 0, size, size))
-	center := float64(size-1) / 2
-	outerRadius := 11.5
-	borderWidth := 1.5
-	highlightRadius := 4.0
-	highlightX := center - 4.5
-	highlightY := center - 4.5
-	border := color.NRGBA{R: 255, G: 255, B: 255, A: 215}
-
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
-			dx := float64(x) - center
-			dy := float64(y) - center
-			dist := dx*dx + dy*dy
-			if dist > outerRadius*outerRadius {
-				continue
-			}
-			pixel := color.NRGBA{R: fill.R, G: fill.G, B: fill.B, A: fill.A}
-			if dist >= (outerRadius-borderWidth)*(outerRadius-borderWidth) {
-				pixel = border
-			}
-
-			hdx := float64(x) - highlightX
-			hdy := float64(y) - highlightY
-			if hdx*hdx+hdy*hdy <= highlightRadius*highlightRadius {
-				pixel = blend(pixel, color.NRGBA{R: 255, G: 255, B: 255, A: 70})
-			}
-			img.SetNRGBA(x, y, pixel)
-		}
-	}
-
-	var pngBuf bytes.Buffer
-	if err := png.Encode(&pngBuf, img); err != nil {
-		return nil, err
-	}
-	pngBytes := pngBuf.Bytes()
-
-	var ico bytes.Buffer
-	if err := binary.Write(&ico, binary.LittleEndian, uint16(0)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
-		return nil, err
-	}
-
-	ico.WriteByte(size)
-	ico.WriteByte(size)
-	ico.WriteByte(0)
-	ico.WriteByte(0)
-	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&ico, binary.LittleEndian, uint16(32)); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&ico, binary.LittleEndian, uint32(len(pngBytes))); err != nil {
-		return nil, err
-	}
-	if err := binary.Write(&ico, binary.LittleEndian, uint32(22)); err != nil {
-		return nil, err
-	}
-	if _, err := ico.Write(pngBytes); err != nil {
-		return nil, err
-	}
-
-	return ico.Bytes(), nil
-}
-
-func blend(base, top color.NRGBA) color.NRGBA {
-	alpha := float64(top.A) / 255
-	inv := 1 - alpha
-	return color.NRGBA{
-		R: uint8(float64(base.R)*inv + float64(top.R)*alpha),
-		G: uint8(float64(base.G)*inv + float64(top.G)*alpha),
-		B: uint8(float64(base.B)*inv + float64(top.B)*alpha),
-		A: uint8(float64(base.A)*inv + float64(top.A)*alpha),
-	}
 }
 
 func writeTempIconFile(data []byte) (string, error) {
