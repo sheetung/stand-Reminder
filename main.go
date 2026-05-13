@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"stand-reminder/internal/app"
+	"stand-reminder/internal/deeplink"
 	"stand-reminder/internal/tray"
 	webui "stand-reminder/internal/web"
 )
@@ -22,6 +23,17 @@ const (
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	if action, ok := deeplink.ParseActionArg(os.Args[1:]); ok {
+		if err := deeplink.ForwardAction("http://"+webAddress, action); err != nil {
+			log.Printf("deeplink action %q failed: %v", action, err)
+		}
+		return
+	}
+
+	if err := deeplink.RegisterCurrentExecutable(); err != nil {
+		log.Printf("failed to register deeplink handler: %v", err)
+	}
 
 	configDir, err := os.UserConfigDir()
 	if err != nil {
@@ -53,7 +65,9 @@ func main() {
 		}
 	}()
 
-	if err := tray.Run(controlCenterURL, application.Locale); err != nil {
+	if err := tray.Run(controlCenterURL, application.Locale, func() string {
+		return application.Snapshot().Status
+	}); err != nil {
 		log.Printf("tray exited with error: %v", err)
 	}
 
@@ -67,4 +81,3 @@ func main() {
 	}
 	log.Println("shutdown complete")
 }
-

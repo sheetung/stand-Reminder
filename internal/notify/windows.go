@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 	"unicode/utf16"
+
+	"stand-reminder/internal/deeplink"
 )
 
 const (
@@ -51,17 +53,16 @@ $appID = $env:STAND_APP_ID
 $title = [System.Security.SecurityElement]::Escape($env:STAND_TITLE)
 $message = [System.Security.SecurityElement]::Escape($env:STAND_MESSAGE)
 $openUrl = $env:STAND_OPEN_URL
-$baseUrl = $env:STAND_BASE_URL
 $escapedUrl = [System.Security.SecurityElement]::Escape($openUrl)
-$escapedSnooze = [System.Security.SecurityElement]::Escape($baseUrl + '/api/action?action=snooze')
-$escapedBreak = [System.Security.SecurityElement]::Escape($baseUrl + '/api/action?action=break')
+$escapedSnooze = [System.Security.SecurityElement]::Escape($env:STAND_ACTION_SNOOZE)
+$escapedBreak = [System.Security.SecurityElement]::Escape($env:STAND_ACTION_BREAK)
 $btnSnooze = [System.Security.SecurityElement]::Escape($env:STAND_BTN_SNOOZE)
 $btnBreak = [System.Security.SecurityElement]::Escape($env:STAND_BTN_BREAK)
 $btnOpen = [System.Security.SecurityElement]::Escape($env:STAND_BTN_OPEN_CENTER)
 
 $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual></toast>'
 if ($openUrl) {
-    $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="' + $btnSnooze + '" activationType="foreground" arguments="' + $escapedSnooze + '" /><action content="' + $btnBreak + '" activationType="foreground" arguments="' + $escapedBreak + '" /><action content="' + $btnOpen + '" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
+    $template = '<toast><visual><binding template="ToastGeneric"><text>' + $title + '</text><text>' + $message + '</text></binding></visual><actions><action content="' + $btnSnooze + '" activationType="protocol" arguments="' + $escapedSnooze + '" /><action content="' + $btnBreak + '" activationType="protocol" arguments="' + $escapedBreak + '" /><action content="' + $btnOpen + '" activationType="protocol" arguments="' + $escapedUrl + '" /></actions></toast>'
 }
 
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
@@ -72,14 +73,15 @@ $notifier.Show($toast)
 `)
 
 	return runPowerShellWithTimeout(script, map[string]string{
-		"STAND_APP_ID":           appID,
-		"STAND_TITLE":            title,
-		"STAND_MESSAGE":          message,
-		"STAND_OPEN_URL":         n.openURL,
-		"STAND_BASE_URL":         n.openURL,
-		"STAND_BTN_SNOOZE":       n.localizedBtnSnooze(),
-		"STAND_BTN_BREAK":        n.localizedBtnBreak(),
-		"STAND_BTN_OPEN_CENTER":  n.localizedBtnOpenCenter(),
+		"STAND_APP_ID":          appID,
+		"STAND_TITLE":           title,
+		"STAND_MESSAGE":         message,
+		"STAND_OPEN_URL":        n.openURL,
+		"STAND_ACTION_SNOOZE":   deeplink.ActionURL("snooze"),
+		"STAND_ACTION_BREAK":    deeplink.ActionURL("break"),
+		"STAND_BTN_SNOOZE":      n.localizedBtnSnooze(),
+		"STAND_BTN_BREAK":       n.localizedBtnBreak(),
+		"STAND_BTN_OPEN_CENTER": n.localizedBtnOpenCenter(),
 	}, showToastTimeout)
 }
 
