@@ -3,7 +3,12 @@
 package tray
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,6 +31,7 @@ var (
 	procCreateWindowExW        = user32.NewProc("CreateWindowExW")
 	procDefWindowProcW         = user32.NewProc("DefWindowProcW")
 	procDestroyWindow          = user32.NewProc("DestroyWindow")
+	procDestroyIcon            = user32.NewProc("DestroyIcon")
 	procGetMessageW            = user32.NewProc("GetMessageW")
 	procTranslateMessage       = user32.NewProc("TranslateMessage")
 	procDispatchMessageW       = user32.NewProc("DispatchMessageW")
@@ -38,6 +44,8 @@ var (
 	procTrackPopupMenu         = user32.NewProc("TrackPopupMenu")
 	procDestroyMenu            = user32.NewProc("DestroyMenu")
 	procSetForegroundWindow    = user32.NewProc("SetForegroundWindow")
+	procSetTimer               = user32.NewProc("SetTimer")
+	procKillTimer              = user32.NewProc("KillTimer")
 	procGetCursorPos           = user32.NewProc("GetCursorPos")
 	procShellNotifyIconW       = shell32.NewProc("Shell_NotifyIconW")
 )
@@ -51,6 +59,7 @@ const (
 	wmLButtonDblClk = 0x0203
 	wmRButtonUp     = 0x0205
 	wmContextMenu   = 0x007B
+	wmTimer         = 0x0113
 	ninSelect       = 0x0400
 	ninKeySelect    = 0x0401
 
@@ -66,6 +75,7 @@ const (
 	cwUseDefault = 0x80000000
 
 	nimAdd     = 0x00000000
+	nimModify  = 0x00000001
 	nimDelete  = 0x00000002
 	nimSetVer  = 0x00000004
 	nifMessage = 0x00000001
@@ -87,6 +97,9 @@ const (
 	menuOpen      = 1001
 	menuAutoStart = 1002
 	menuExit      = 1003
+
+	trayRefreshTimerID = 1
+	trayRefreshMS      = 1000
 )
 
 const (
@@ -145,19 +158,25 @@ type notifyIconData struct {
 var (
 	trayURL               string
 	trayLocale            func() string
+	trayStatus            func() string
 	trayIcon              uintptr
+	trayIcons             map[string]uintptr
+	trayStatusCached      string
 	taskbarCreatedMessage uint32
 	trayProc              = syscall.NewCallback(wndProc)
 	classNamePtr          = syscall.StringToUTF16Ptr("StandReminderTrayWindow")
 )
 
-func Run(url string, localeProvider func() string) error {
+func Run(url string, localeProvider func() string, statusProvider func() string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
 	trayURL = url
 	trayLocale = localeProvider
-	trayIcon = loadTrayIcon()
+	trayStatus = statusProvider
+	trayIcons = loadTrayIcons()
+	trayStatusCached = currentStatus()
+	trayIcon = iconForStatus(trayStatusCached)
 	taskbarCreatedMessage = registerTaskbarCreatedMessage()
 
 	cursor, _, _ := procLoadCursorW.Call(0, idcArrow)
@@ -198,6 +217,10 @@ func Run(url string, localeProvider func() string) error {
 		return err
 	}
 	defer deleteTrayIcon(hwnd)
+	defer destroyTrayIcons()
+
+	procSetTimer.Call(hwnd, trayRefreshTimerID, trayRefreshMS, 0)
+	defer procKillTimer.Call(hwnd, trayRefreshTimerID)
 
 	var message msg
 	for {
@@ -215,6 +238,7 @@ func Run(url string, localeProvider func() string) error {
 
 func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 	if taskbarCreatedMessage != 0 && uint32(msgID) == taskbarCreatedMessage {
+		trayIcon = iconForStatus(currentStatus())
 		_ = addTrayIcon(hwnd, trayIcon)
 		return 0
 	}
@@ -240,6 +264,11 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 			procDestroyWindow.Call(hwnd)
 		}
 		return 0
+	case wmTimer:
+		if wParam == trayRefreshTimerID {
+			refreshTrayIcon(hwnd)
+			return 0
+		}
 	case wmDestroy:
 		procPostQuitMessage.Call(0)
 		return 0
@@ -247,6 +276,9 @@ func wndProc(hwnd, msgID, wParam, lParam uintptr) uintptr {
 		ret, _, _ := procDefWindowProcW.Call(hwnd, msgID, wParam, lParam)
 		return ret
 	}
+
+	ret, _, _ := procDefWindowProcW.Call(hwnd, msgID, wParam, lParam)
+	return ret
 }
 
 func addTrayIcon(hwnd, icon uintptr) error {
@@ -275,6 +307,20 @@ func deleteTrayIcon(hwnd uintptr) {
 	nid.HWnd = hwnd
 	nid.UID = 1
 	procShellNotifyIconW.Call(nimDelete, uintptr(unsafe.Pointer(&nid)))
+}
+
+func updateTrayIcon(hwnd, icon uintptr) error {
+	var nid notifyIconData
+	nid.CbSize = uint32(unsafe.Sizeof(nid))
+	nid.HWnd = hwnd
+	nid.UID = 1
+	nid.UFlags = nifIcon
+	nid.HIcon = icon
+	ret, _, err := procShellNotifyIconW.Call(nimModify, uintptr(unsafe.Pointer(&nid)))
+	if ret == 0 {
+		return fmt.Errorf("Shell_NotifyIconW modify failed: %w", err)
+	}
+	return nil
 }
 
 func showMenu(hwnd uintptr) {
@@ -410,6 +456,7 @@ func openBrowser(url string) {
 func loadTrayIcon() uintptr {
 	iconPath, err := writeTempIconFile(appassets.StandReminderICO)
 	if err == nil {
+		defer os.Remove(iconPath)
 		ptr := syscall.StringToUTF16Ptr(iconPath)
 		icon, _, _ := procLoadImageW.Call(0, uintptr(unsafe.Pointer(ptr)), imageIcon, 0, 0, lrLoadFromFile|lrDefaultSize)
 		if icon != 0 {
@@ -418,6 +465,169 @@ func loadTrayIcon() uintptr {
 	}
 	icon, _, _ := procLoadIconW.Call(0, idiApplication)
 	return icon
+}
+
+func loadTrayIcons() map[string]uintptr {
+	icons := map[string]uintptr{
+		"":                   loadColoredTrayIcon(color.RGBA{30, 30, 30, 255}),
+		"active":             loadColoredTrayIcon(color.RGBA{25, 25, 25, 255}),
+		"paused":             loadColoredTrayIcon(color.RGBA{128, 128, 128, 255}),
+		"manual_paused":      loadColoredTrayIcon(color.RGBA{128, 128, 128, 255}),
+		"break_mode":         loadColoredTrayIcon(color.RGBA{47, 109, 246, 255}),
+		"idle":               loadColoredTrayIcon(color.RGBA{90, 90, 90, 255}),
+		"idle_reset":         loadColoredTrayIcon(color.RGBA{36, 142, 92, 255}),
+		"reminder_triggered": loadColoredTrayIcon(color.RGBA{220, 52, 52, 255}),
+	}
+	for key, icon := range icons {
+		if icon == 0 {
+			icons[key] = loadTrayIcon()
+		}
+	}
+	return icons
+}
+
+func iconForStatus(status string) uintptr {
+	if trayIcons == nil {
+		return loadTrayIcon()
+	}
+	status = strings.TrimSpace(status)
+	if icon, ok := trayIcons[status]; ok && icon != 0 {
+		return icon
+	}
+	if icon, ok := trayIcons["active"]; ok && icon != 0 {
+		return icon
+	}
+	return loadTrayIcon()
+}
+
+func currentStatus() string {
+	if trayStatus == nil {
+		return "active"
+	}
+	return strings.TrimSpace(trayStatus())
+}
+
+func refreshTrayIcon(hwnd uintptr) {
+	status := currentStatus()
+	if status == trayStatusCached {
+		return
+	}
+	icon := iconForStatus(status)
+	if icon == 0 {
+		return
+	}
+	if err := updateTrayIcon(hwnd, icon); err == nil {
+		trayStatusCached = status
+		trayIcon = icon
+	}
+}
+
+func destroyTrayIcons() {
+	for _, icon := range trayIcons {
+		if icon != 0 {
+			procDestroyIcon.Call(icon)
+		}
+	}
+	trayIcons = nil
+}
+
+func loadColoredTrayIcon(fill color.RGBA) uintptr {
+	data, err := generateColoredTrayICO(fill)
+	if err != nil {
+		return 0
+	}
+	iconPath, err := writeTempIconFile(data)
+	if err != nil {
+		return 0
+	}
+	defer os.Remove(iconPath)
+	ptr := syscall.StringToUTF16Ptr(iconPath)
+	icon, _, _ := procLoadImageW.Call(0, uintptr(unsafe.Pointer(ptr)), imageIcon, 0, 0, lrLoadFromFile|lrDefaultSize)
+	return icon
+}
+
+func generateColoredTrayICO(fill color.RGBA) ([]byte, error) {
+	const size = 32
+	img := image.NewNRGBA(image.Rect(0, 0, size, size))
+	center := float64(size-1) / 2
+	outerRadius := 11.5
+	borderWidth := 1.5
+	highlightRadius := 4.0
+	highlightX := center - 4.5
+	highlightY := center - 4.5
+	border := color.NRGBA{R: 255, G: 255, B: 255, A: 215}
+
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			dx := float64(x) - center
+			dy := float64(y) - center
+			dist := dx*dx + dy*dy
+			if dist > outerRadius*outerRadius {
+				continue
+			}
+			pixel := color.NRGBA{R: fill.R, G: fill.G, B: fill.B, A: fill.A}
+			if dist >= (outerRadius-borderWidth)*(outerRadius-borderWidth) {
+				pixel = border
+			}
+
+			hdx := float64(x) - highlightX
+			hdy := float64(y) - highlightY
+			if hdx*hdx+hdy*hdy <= highlightRadius*highlightRadius {
+				pixel = blend(pixel, color.NRGBA{R: 255, G: 255, B: 255, A: 70})
+			}
+			img.SetNRGBA(x, y, pixel)
+		}
+	}
+
+	var pngBuf bytes.Buffer
+	if err := png.Encode(&pngBuf, img); err != nil {
+		return nil, err
+	}
+	pngBytes := pngBuf.Bytes()
+
+	var ico bytes.Buffer
+	if err := binary.Write(&ico, binary.LittleEndian, uint16(0)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
+		return nil, err
+	}
+
+	ico.WriteByte(size)
+	ico.WriteByte(size)
+	ico.WriteByte(0)
+	ico.WriteByte(0)
+	if err := binary.Write(&ico, binary.LittleEndian, uint16(1)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&ico, binary.LittleEndian, uint16(32)); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&ico, binary.LittleEndian, uint32(len(pngBytes))); err != nil {
+		return nil, err
+	}
+	if err := binary.Write(&ico, binary.LittleEndian, uint32(22)); err != nil {
+		return nil, err
+	}
+	if _, err := ico.Write(pngBytes); err != nil {
+		return nil, err
+	}
+
+	return ico.Bytes(), nil
+}
+
+func blend(base, top color.NRGBA) color.NRGBA {
+	alpha := float64(top.A) / 255
+	inv := 1 - alpha
+	return color.NRGBA{
+		R: uint8(float64(base.R)*inv + float64(top.R)*alpha),
+		G: uint8(float64(base.G)*inv + float64(top.G)*alpha),
+		B: uint8(float64(base.B)*inv + float64(top.B)*alpha),
+		A: uint8(float64(base.A)*inv + float64(top.A)*alpha),
+	}
 }
 
 func writeTempIconFile(data []byte) (string, error) {
