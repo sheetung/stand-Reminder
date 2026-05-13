@@ -224,6 +224,10 @@ func (s *Server) handleAction(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		action := r.URL.Query().Get("action")
 		switch action {
+		case "pause":
+			s.app.Pause()
+		case "resume":
+			s.app.Resume()
 		case "snooze":
 			s.app.Snooze()
 		case "break":
