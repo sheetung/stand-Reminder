@@ -35,12 +35,12 @@ Name: "startup"; Description: "&Launch at Windows startup"; GroupDescription: "A
 
 [Files]
 Source: "stand-reminder.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "assets\stand-reminder.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "assets\stand_reminder_black.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "StandReminder.App"; IconFilename: "{app}\stand-reminder.ico"
-Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\stand-reminder.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; AppUserModelID: "StandReminder.App"; IconFilename: "{app}\stand-reminder.ico"
+Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; AppUserModelID: "StandReminder.App"; IconFilename: "{app}\stand_reminder_black.ico"
+Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"; IconFilename: "{app}\stand_reminder_black.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; AppUserModelID: "StandReminder.App"; IconFilename: "{app}\stand_reminder_black.ico"
 
 [Registry]
 ; Add to Windows startup

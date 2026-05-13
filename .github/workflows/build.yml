@@ -48,7 +48,7 @@ jobs:
 
       - name: Embed application icon
         shell: pwsh
-        run: .\scripts\embed-icon.ps1 -ExePath "${{ steps.meta.outputs.exe_name }}" -IconPath ".\assets\stand-reminder.ico"
+        run: .\scripts\embed-icon.ps1 -ExePath "${{ steps.meta.outputs.exe_name }}" -IconPath ".\assets\stand_reminder_black.ico"
 
       - name: Install Inno Setup
         shell: pwsh
